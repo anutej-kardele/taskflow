@@ -17,19 +17,21 @@ import com.anutej.taskflow.controlplane.model.Workload;
 import com.anutej.taskflow.controlplane.model.WorkloadStatus;
 import com.anutej.taskflow.controlplane.repository.JobRepository;
 import com.anutej.taskflow.controlplane.repository.WorkloadRepository;
+import com.anutej.taskflow.controlplane.messaging.JobPublisher;
 
 @Service
 public class WorkloadService {
 
     private final WorkloadRepository workloadRepository;
     private final JobRepository jobRepository;
+    private final JobPublisher jobPublisher;
 
-    public WorkloadService(
-            WorkloadRepository workloadRepository,
-            JobRepository jobRepository) {
+    public WorkloadService(WorkloadRepository workloadRepository, JobRepository jobRepository,
+            JobPublisher jobPublisher) {
 
         this.workloadRepository = workloadRepository;
         this.jobRepository = jobRepository;
+        this.jobPublisher = jobPublisher;
     }
 
     public Workload createWorkload(JobType jobType, int jobCount, Map<String, Object> configuration) {
@@ -68,6 +70,10 @@ public class WorkloadService {
         }
 
         jobRepository.saveAll(jobs);
+
+        for (Job job : jobs) {
+            jobPublisher.publish(job);
+        }
 
         return workload;
     }
