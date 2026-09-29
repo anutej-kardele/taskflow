@@ -5,6 +5,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 
 import org.springframework.stereotype.Service;
@@ -69,5 +70,17 @@ public class WorkloadService {
         jobRepository.saveAll(jobs);
 
         return workload;
+    }
+
+    public List<Workload> getAllWorkloads() {
+        return workloadRepository.findAll();
+    }
+
+    public Optional<Workload> getWorkloadById(String id) {
+        return workloadRepository.findById(id);
+    }
+
+    public List<Job> getJobsByWorkloadId(String workloadId) {
+        return jobRepository.findByWorkloadId(workloadId);
     }
 }
