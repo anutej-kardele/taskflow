@@ -1,0 +1,73 @@
+package com.anutej.taskflow.controlplane.service;
+
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+
+import org.springframework.stereotype.Service;
+
+import com.anutej.taskflow.controlplane.model.Job;
+import com.anutej.taskflow.controlplane.model.JobStatus;
+import com.anutej.taskflow.controlplane.model.JobType;
+import com.anutej.taskflow.controlplane.model.Workload;
+import com.anutej.taskflow.controlplane.model.WorkloadStatus;
+import com.anutej.taskflow.controlplane.repository.JobRepository;
+import com.anutej.taskflow.controlplane.repository.WorkloadRepository;
+
+@Service
+public class WorkloadService {
+
+    private final WorkloadRepository workloadRepository;
+    private final JobRepository jobRepository;
+
+    public WorkloadService(
+            WorkloadRepository workloadRepository,
+            JobRepository jobRepository) {
+
+        this.workloadRepository = workloadRepository;
+        this.jobRepository = jobRepository;
+    }
+
+    public Workload createWorkload(JobType jobType, int jobCount, Map<String, Object> configuration) {
+
+        if (jobCount <= 0) {
+            throw new IllegalArgumentException("jobCount must be greater than 0");
+        }
+
+        String workloadId = UUID.randomUUID().toString();
+        Instant createdAt = Instant.now();
+
+        Workload workload = new Workload(
+                workloadId,
+                jobType,
+                jobCount,
+                WorkloadStatus.CREATED,
+                configuration,
+                createdAt);
+
+        workloadRepository.save(workload);
+
+        List<Job> jobs = new ArrayList<>();
+
+        for (int i = 0; i < jobCount; i++) {
+
+            Job job = new Job(
+                    UUID.randomUUID().toString(),
+                    workloadId,
+                    jobType,
+                    JobStatus.QUEUED,
+                    0,
+                    new HashMap<>(configuration),
+                    createdAt);
+
+            jobs.add(job);
+        }
+
+        jobRepository.saveAll(jobs);
+
+        return workload;
+    }
+}
