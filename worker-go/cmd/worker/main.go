@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
 	"sync"
 	"syscall"
 	"time"
@@ -20,7 +21,7 @@ import (
 )
 
 func main() {
-	const workerCount = 3
+	workerCount := getWorkerCount()
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
@@ -37,6 +38,30 @@ func main() {
 	wg.Wait()
 
 	log.Println("TaskFlow worker process stopped")
+}
+
+func getWorkerCount() int {
+
+	const defaultWorkerCount = 3
+
+	value := os.Getenv("TASKFLOW_WORKER_CONCURRENCY")
+
+	if value == "" {
+		return defaultWorkerCount
+	}
+
+	workerCount, err := strconv.Atoi(value)
+	if err != nil || workerCount <= 0 {
+		log.Printf(
+			"invalid TASKFLOW_WORKER_CONCURRENCY=%q; using default=%d",
+			value,
+			defaultWorkerCount,
+		)
+
+		return defaultWorkerCount
+	}
+
+	return workerCount
 }
 
 func runWorker(ctx context.Context, workerID int, wg *sync.WaitGroup) {

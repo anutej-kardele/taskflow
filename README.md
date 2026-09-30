@@ -14,6 +14,21 @@ TaskFlow is being built to explore distributed-systems concepts through a concre
 - Go workers consume and execute them.
 - The dashboard shows what is happening across the system.
 
+## Performance Benchmark
+
+TaskFlow was benchmarked using 100 `SLEEP` jobs with a duration of 2000 ms per job.
+
+| Worker Concurrency | Total Completion Time | Throughput | Speedup |
+|-------------------:|----------------------:|-----------:|--------:|
+| 1 | 206.047 s | 0.485 jobs/s | 1.00x |
+| 5 | 51.597 s | 1.938 jobs/s | 3.99x |
+| 10 | 30.890 s | 3.237 jobs/s | 6.67x |
+
+Increasing worker concurrency significantly improved throughput. Moving from 1 to 5 workers produced approximately a 3.99x speedup, while 10 workers achieved approximately a 6.67x speedup.
+
+The benchmark used a Kafka topic with 10 partitions so that up to 10 consumers in the worker group could receive work concurrently.
+
+
 ## Target Architecture
 
 ```text
@@ -136,16 +151,3 @@ A request for 10 Sleep jobs should create 10 Job records, publish 10 Kafka messa
 - [Architecture](docs/architecture.md)
 - [Development Workflow](docs/TaskFlow_Development_Workflow.md)
 - [Documentation Index](docs/README.md)
-
-## Current Phase
-
-### Phase 0 — Define the System
-
-- [x] Create repository
-- [x] Establish monorepo structure
-- [x] Define Workload and Job concepts
-- [x] Define initial Job Types
-- [x] Define initial Job Statuses
-- [x] Document service ownership
-- [x] Document target architecture
-- [ ] Begin Phase 1: Spring Boot + MongoDB
