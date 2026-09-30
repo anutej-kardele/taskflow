@@ -20,6 +20,12 @@ public class Job {
 
     private int attempt;
 
+    private String workerId;
+
+    private Instant startedAt;
+
+    private Instant leaseUntil;
+
     private Map<String, Object> payload;
 
     private Instant createdAt;
@@ -99,5 +105,29 @@ public class Job {
 
     public void setCreatedAt(Instant createdAt) {
         this.createdAt = createdAt;
+    }
+
+    public String getWorkerId() {
+        return workerId;
+    }
+
+    public void setWorkerId(String workerId) {
+        this.workerId = workerId;
+    }
+
+    public Instant getStartedAt() {
+        return startedAt;
+    }
+
+    public void setStartedAt(Instant startedAt) {
+        this.startedAt = startedAt;
+    }
+
+    public Instant getLeaseUntil() {
+        return leaseUntil;
+    }
+
+    public void setLeaseUntil(Instant leaseUntil) {
+        this.leaseUntil = leaseUntil;
     }
 }
