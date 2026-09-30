@@ -8,6 +8,7 @@ import (
 	"os/signal"
 	"syscall"
 
+	"github.com/anutej-kardele/taskflow/worker-go/internal/client"
 	"github.com/anutej-kardele/taskflow/worker-go/internal/executor"
 	"github.com/anutej-kardele/taskflow/worker-go/internal/model"
 	"github.com/segmentio/kafka-go"
@@ -48,8 +49,7 @@ func main() {
 
 		var job model.JobMessage
 
-		if err := json.Unmarshal(message.Value, &job); 
-		err != nil {
+		if err := json.Unmarshal(message.Value, &job); err != nil {
 			log.Printf("invalid job message: %v", err)
 			continue
 		}
@@ -64,11 +64,27 @@ func main() {
 		switch job.Type {
 
 		case "SLEEP":
+
+			if err := client.UpdateJobStatus(ctx, job.JobID, "RUNNING"); err != nil {
+				log.Printf("failed to mark job %s RUNNING: %v", job.JobID, err)
+				continue
+			}
+
 			log.Printf("job %s RUNNING", job.JobID)
 
-			if err := executor.ExecuteSleep(ctx, job.Payload); 
-			err != nil {
+			if err := executor.ExecuteSleep(ctx, job.Payload); err != nil {
+
 				log.Printf("job %s FAILED: %v", job.JobID, err)
+
+				if statusErr := client.UpdateJobStatus(ctx, job.JobID, "FAILED"); statusErr != nil {
+					log.Printf("failed to mark job %s FAILED: %v", job.JobID, statusErr)
+				}
+
+				continue
+			}
+
+			if err := client.UpdateJobStatus(ctx, job.JobID, "COMPLETED"); err != nil {
+				log.Printf("failed to mark job %s COMPLETED: %v", job.JobID, err)
 				continue
 			}
 
@@ -83,8 +99,7 @@ func main() {
 			continue
 		}
 
-		if err := reader.CommitMessages(ctx, message); 
-		err != nil {
+		if err := reader.CommitMessages(ctx, message); err != nil {
 			log.Printf(
 				"failed to commit job %s: %v",
 				job.JobID,
