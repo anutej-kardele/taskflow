@@ -8,10 +8,10 @@ import {
 
 const features = [
     {
-        title: "Worker Fleet",
+        title: "Execution Capacity",
         description:
-            "Worker health, heartbeat and capacity.",
-        phase: "Redis worker health",
+            "Live worker processes, concurrency slots, logical CPUs and active jobs.",
+        phase: "Worker health",
         icon: Server,
     },
     {
@@ -31,7 +31,7 @@ const features = [
     {
         title: "Observability",
         description:
-            "Throughput, latency and execution metrics.",
+            "Throughput, latency and runtime metrics.",
         phase: "Metrics",
         icon: Activity,
     },
@@ -40,22 +40,23 @@ const features = [
 export default function PlatformFeatures() {
     return (
         <section className="rounded-xl border border-zinc-800 bg-[#0a0c10]">
-            <div className="border-b border-zinc-800 px-5 py-5">
-                <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-blue-400">
-                    Platform
-                </p>
+            <div className="flex items-center justify-between border-b border-zinc-800 px-4 py-3">
+                <div>
+                    <p className="font-mono text-[8px] uppercase tracking-[0.2em] text-blue-400">
+                        Platform
+                    </p>
 
-                <h2 className="mt-2 text-lg font-semibold text-white">
-                    System capabilities
-                </h2>
+                    <h2 className="mt-1 text-sm font-semibold text-white">
+                        Upcoming capabilities
+                    </h2>
+                </div>
 
-                <p className="mt-1 text-sm text-zinc-500">
-                    Planned capabilities are visible
-                    now and unlock as the system grows.
-                </p>
+                <span className="font-mono text-[8px] uppercase tracking-wider text-zinc-700">
+                    Roadmap
+                </span>
             </div>
 
-            <div className="grid gap-3 p-5 md:grid-cols-2 xl:grid-cols-4">
+            <div className="grid gap-2.5 p-3 md:grid-cols-2 xl:grid-cols-4">
                 {features.map(
                     ({
                         title,
@@ -66,36 +67,36 @@ export default function PlatformFeatures() {
                         <div
                             key={title}
                             className="
-                group relative
-                min-h-[165px]
-                overflow-hidden
-                rounded-xl
+                relative
+                rounded-lg
                 border border-zinc-800
                 bg-[#07090d]
-                p-4
+                p-3
               "
                         >
-                            <div className="absolute right-3 top-3">
-                                <LockKeyhole
-                                    size={14}
-                                    className="text-zinc-700"
-                                />
+                            <div className="flex items-start justify-between">
+                                <div className="flex h-7 w-7 items-center justify-center rounded-md border border-blue-500/15 bg-blue-500/[0.06] text-blue-500/60">
+                                    <Icon size={13} />
+                                </div>
+
+                                <div className="flex items-center gap-1 font-mono text-[7px] uppercase tracking-wider text-zinc-700">
+                                    <LockKeyhole
+                                        size={10}
+                                    />
+                                    Locked
+                                </div>
                             </div>
 
-                            <div className="flex h-9 w-9 items-center justify-center rounded-lg border border-blue-500/15 bg-blue-500/[0.06] text-blue-500/60">
-                                <Icon size={16} />
-                            </div>
-
-                            <p className="mt-4 text-sm font-medium text-zinc-400">
+                            <p className="mt-2.5 text-xs font-medium text-zinc-400">
                                 {title}
                             </p>
 
-                            <p className="mt-2 text-xs leading-5 text-zinc-600">
+                            <p className="mt-1 text-[10px] leading-4 text-zinc-600">
                                 {description}
                             </p>
 
-                            <p className="mt-3 font-mono text-[9px] uppercase tracking-wider text-blue-500/50">
-                                Locked · {phase}
+                            <p className="mt-2 font-mono text-[7px] uppercase tracking-wider text-blue-500/50">
+                                {phase}
                             </p>
                         </div>
                     ),

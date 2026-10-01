@@ -1,6 +1,7 @@
 import {
     Cpu,
     Globe2,
+    Minus,
     Moon,
     Plus,
     Send,
@@ -86,8 +87,131 @@ function Field({
     value,
     onChange,
     wide = false,
+    type = "text",
+    min,
+    max,
+    step = 1,
     ...props
 }) {
+    function changeNumber(direction) {
+        const current =
+            Number(value) || 0;
+
+        const stepValue =
+            Number(step) || 1;
+
+        let next =
+            current +
+            direction * stepValue;
+
+        if (min !== undefined) {
+            next = Math.max(
+                Number(min),
+                next,
+            );
+        }
+
+        if (max !== undefined) {
+            next = Math.min(
+                Number(max),
+                next,
+            );
+        }
+
+        // Prevent floating-point values such as 0.30000000004.
+        next = Number(
+            next.toFixed(6),
+        );
+
+        onChange(String(next));
+    }
+
+    if (type === "number") {
+        return (
+            <label
+                className={
+                    wide
+                        ? "col-span-2"
+                        : ""
+                }
+            >
+                <span className="mb-1 block text-[8px] font-medium uppercase tracking-[0.14em] text-zinc-600">
+                    {label}
+                </span>
+
+                <div className="relative">
+                    <input
+                        {...props}
+                        type="number"
+                        min={min}
+                        max={max}
+                        step={step}
+                        value={value}
+                        onChange={(event) =>
+                            onChange(
+                                event.target.value,
+                            )
+                        }
+                        className="
+              taskflow-number
+              h-8 w-full
+              rounded-md
+              border border-zinc-800
+              bg-[#05070b]
+              px-2.5 pr-[58px]
+              text-xs text-zinc-200
+              outline-none
+              transition
+              focus:border-blue-500/60
+              focus:ring-1
+              focus:ring-blue-500/20
+            "
+                    />
+
+                    <div className="absolute right-1 top-1/2 flex -translate-y-1/2 gap-0.5">
+                        <button
+                            type="button"
+                            onClick={() =>
+                                changeNumber(-1)
+                            }
+                            className="
+                flex h-6 w-6
+                items-center justify-center
+                rounded
+                text-zinc-600
+                transition
+                hover:bg-blue-500/10
+                hover:text-blue-400
+              "
+                            aria-label={`Decrease ${label}`}
+                        >
+                            <Minus size={10} />
+                        </button>
+
+                        <button
+                            type="button"
+                            onClick={() =>
+                                changeNumber(1)
+                            }
+                            className="
+                flex h-6 w-6
+                items-center justify-center
+                rounded
+                text-zinc-600
+                transition
+                hover:bg-blue-500/10
+                hover:text-blue-400
+              "
+                            aria-label={`Increase ${label}`}
+                        >
+                            <Plus size={10} />
+                        </button>
+                    </div>
+                </div>
+            </label>
+        );
+    }
+
     return (
         <label
             className={
@@ -102,6 +226,7 @@ function Field({
 
             <input
                 {...props}
+                type={type}
                 value={value}
                 onChange={(event) =>
                     onChange(
@@ -139,6 +264,7 @@ function ConfigurationFields({
                 label="Duration ms"
                 type="number"
                 min="1"
+                step="100"
                 value={config.durationMs}
                 onChange={(value) =>
                     updateConfiguration({
@@ -156,6 +282,7 @@ function ConfigurationFields({
                 label="Iterations"
                 type="number"
                 min="1"
+                step="100000"
                 value={config.iterations}
                 onChange={(value) =>
                     updateConfiguration({
@@ -170,15 +297,11 @@ function ConfigurationFields({
     if (workload.jobType === "HTTP") {
         return (
             <>
-                {/*
-          Jobs is rendered immediately before this
-          component, so Timeout becomes the second
-          column on the same row.
-        */}
                 <Field
                     label="Timeout ms"
                     type="number"
                     min="1"
+                    step="500"
                     value={config.timeoutMs}
                     onChange={(value) =>
                         updateConfiguration({
@@ -223,6 +346,7 @@ function ConfigurationFields({
                 label="Duration ms"
                 type="number"
                 min="1"
+                step="100"
                 value={config.durationMs}
                 onChange={(value) =>
                     updateConfiguration({
@@ -454,6 +578,7 @@ export default function WorkloadComposer({
                       hover:text-red-400
                       disabled:opacity-20
                     "
+                                        aria-label={`Remove workload ${index + 1}`}
                                     >
                                         <Trash2
                                             size={12}
@@ -515,6 +640,7 @@ export default function WorkloadComposer({
                                         label="Jobs"
                                         type="number"
                                         min="1"
+                                        step="1"
                                         value={
                                             workload.jobCount
                                         }
@@ -583,6 +709,7 @@ export default function WorkloadComposer({
             text-white
             transition
             hover:bg-blue-500
+            disabled:cursor-not-allowed
             disabled:opacity-50
           "
                 >

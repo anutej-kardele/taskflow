@@ -24,10 +24,7 @@ export default function OverviewMetrics({
     const activeWorkloads =
         workloads.filter(
             (workload) =>
-                workload.status ===
-                "RUNNING" ||
-                workload.status ===
-                "CREATED",
+                workload.status === "RUNNING"
         ).length;
 
     const terminal =
@@ -74,7 +71,7 @@ export default function OverviewMetrics({
             <MetricCard
                 label="Active"
                 value={activeWorkloads}
-                description="Created or running"
+                description="Currently running"
                 icon={Activity}
             />
 
