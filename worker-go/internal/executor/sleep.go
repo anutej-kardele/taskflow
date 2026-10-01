@@ -9,16 +9,31 @@ import (
 	"github.com/anutej-kardele/taskflow/worker-go/internal/model"
 )
 
-func ExecuteSleep(ctx context.Context, rawPayload json.RawMessage) error {
+// SleepExecutor handles SLEEP jobs.
+type SleepExecutor struct{}
+
+// Execute implements the Executor interface for SLEEP jobs.
+func (SleepExecutor) Execute(
+	ctx context.Context,
+	rawPayload json.RawMessage,
+) error {
+
 	var payload model.SleepPayload
 
-	if err := json.Unmarshal(rawPayload, &payload); 
-	err != nil {
-		return fmt.Errorf("invalid sleep payload: %w", err)
+	if err := json.Unmarshal(
+		rawPayload,
+		&payload,
+	); err != nil {
+		return fmt.Errorf(
+			"invalid sleep payload: %w",
+			err,
+		)
 	}
 
 	if payload.DurationMs <= 0 {
-		return fmt.Errorf("durationMs must be greater than 0")
+		return fmt.Errorf(
+			"durationMs must be greater than 0",
+		)
 	}
 
 	timer := time.NewTimer(
@@ -27,6 +42,7 @@ func ExecuteSleep(ctx context.Context, rawPayload json.RawMessage) error {
 	defer timer.Stop()
 
 	select {
+
 	case <-timer.C:
 		return nil
 

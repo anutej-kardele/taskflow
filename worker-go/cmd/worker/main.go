@@ -23,16 +23,28 @@ import (
 func main() {
 	workerCount := getWorkerCount()
 
-	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	ctx, stop := signal.NotifyContext(
+		context.Background(),
+		os.Interrupt,
+		syscall.SIGTERM,
+	)
 	defer stop()
 
 	var wg sync.WaitGroup
 
-	log.Printf("TaskFlow starting with %d workers", workerCount)
+	log.Printf(
+		"TaskFlow starting with %d workers",
+		workerCount,
+	)
 
 	for workerID := 1; workerID <= workerCount; workerID++ {
 		wg.Add(1)
-		go runWorker(ctx, workerID, &wg)
+
+		go runWorker(
+			ctx,
+			workerID,
+			&wg,
+		)
 	}
 
 	wg.Wait()
@@ -44,13 +56,16 @@ func getWorkerCount() int {
 
 	const defaultWorkerCount = 3
 
-	value := os.Getenv("TASKFLOW_WORKER_CONCURRENCY")
+	value := os.Getenv(
+		"TASKFLOW_WORKER_CONCURRENCY",
+	)
 
 	if value == "" {
 		return defaultWorkerCount
 	}
 
 	workerCount, err := strconv.Atoi(value)
+
 	if err != nil || workerCount <= 0 {
 		log.Printf(
 			"invalid TASKFLOW_WORKER_CONCURRENCY=%q; using default=%d",
@@ -64,39 +79,75 @@ func getWorkerCount() int {
 	return workerCount
 }
 
-func runWorker(ctx context.Context, workerID int, wg *sync.WaitGroup) {
+func runWorker(
+	ctx context.Context,
+	workerID int,
+	wg *sync.WaitGroup,
+) {
 
 	defer wg.Done()
 
-	workerInstanceID := fmt.Sprintf("taskflow-%d-worker-%d", os.Getpid(), workerID)
+	workerInstanceID := fmt.Sprintf(
+		"taskflow-%d-worker-%d",
+		os.Getpid(),
+		workerID,
+	)
 
-	reader := kafka.NewReader(kafka.ReaderConfig{
-		Brokers:     []string{"localhost:9092"},
-		Topic:       "taskflow.jobs",
-		GroupID:     "taskflow-workers",
-		StartOffset: kafka.FirstOffset,
-	})
+	reader := kafka.NewReader(
+		kafka.ReaderConfig{
+			Brokers: []string{
+				"localhost:9092",
+			},
+			Topic:       "taskflow.jobs",
+			GroupID:     "taskflow-workers",
+			StartOffset: kafka.FirstOffset,
+		},
+	)
 
 	defer reader.Close()
 
-	log.Printf("worker %s started", workerInstanceID)
+	log.Printf(
+		"worker %s started",
+		workerInstanceID,
+	)
 
 	for {
+
 		message, err := reader.FetchMessage(ctx)
 
 		if err != nil {
+
 			if ctx.Err() != nil {
-				log.Printf("worker %s shutting down", workerInstanceID)
+				log.Printf(
+					"worker %s shutting down",
+					workerInstanceID,
+				)
+
 				return
 			}
 
-			log.Printf("worker %s failed to fetch message: %v", workerInstanceID, err)
+			log.Printf(
+				"worker %s failed to fetch message: %v",
+				workerInstanceID,
+				err,
+			)
+
 			continue
 		}
 
-		success := processMessage(ctx, reader, message, workerInstanceID)
+		success := processMessage(
+			ctx,
+			reader,
+			message,
+			workerInstanceID,
+		)
+
 		if !success {
-			log.Printf("worker %s stopping because message processing was unresolved", workerInstanceID)
+			log.Printf(
+				"worker %s stopping because message processing was unresolved",
+				workerInstanceID,
+			)
+
 			return
 		}
 	}
@@ -111,8 +162,16 @@ func processMessage(
 
 	var job model.JobMessage
 
-	if err := json.Unmarshal(message.Value, &job); err != nil {
-		log.Printf("invalid job message: %v", err)
+	if err := json.Unmarshal(
+		message.Value,
+		&job,
+	); err != nil {
+
+		log.Printf(
+			"invalid job message: %v",
+			err,
+		)
+
 		return false
 	}
 
@@ -124,270 +183,390 @@ func processMessage(
 		job.WorkloadID,
 	)
 
-	switch job.Type {
+	/*
+		Select the correct executor for this job type.
 
-	case "SLEEP":
+		Today:
+		    SLEEP -> SleepExecutor
 
-		var claimedJob *client.JobResponse
+		Later:
+		    CPU        -> CPUExecutor
+		    HTTP       -> HTTPExecutor
+		    UNRELIABLE -> UnreliableExecutor
+	*/
+	jobExecutor, err := executor.ForType(
+		job.Type,
+	)
 
-		for {
-
-			jobResponse, claimErr := client.ClaimJob(
-				ctx,
-				job.JobID,
-				workerID,
-			)
-
-			if claimErr == nil {
-				claimedJob = jobResponse
-				break
-			}
-
-			var controlPlaneErr *client.ControlPlaneError
-
-			if !errors.As(claimErr, &controlPlaneErr) {
-				log.Printf(
-					"failed to contact control plane for job %s: %v",
-					job.JobID,
-					claimErr,
-				)
-				return false
-			}
-
-			switch controlPlaneErr.StatusCode {
-
-			case http.StatusConflict:
-
-				currentJob, getErr := client.GetJob(
-					ctx,
-					job.JobID,
-				)
-
-				if getErr != nil {
-					log.Printf(
-						"failed to get current state for job %s: %v",
-						job.JobID,
-						getErr,
-					)
-					return false
-				}
-
-				log.Printf(
-					"job %s conflict: current status=%s attempt=%d",
-					job.JobID,
-					currentJob.Status,
-					currentJob.Attempt,
-				)
-
-				if currentJob.Status == "COMPLETED" ||
-					currentJob.Status == "FAILED" {
-
-					log.Printf(
-						"job %s already terminal with status=%s; committing duplicate Kafka message",
-						job.JobID,
-						currentJob.Status,
-					)
-
-					if err := reader.CommitMessages(
-						ctx,
-						message,
-					); err != nil {
-
-						log.Printf(
-							"failed to commit duplicate job %s: %v",
-							job.JobID,
-							err,
-						)
-
-						return false
-					}
-
-					return true
-				}
-
-				if currentJob.Status == "RUNNING" &&
-					currentJob.LeaseUntil != nil {
-
-					leaseUntil, parseErr := time.Parse(
-						time.RFC3339Nano,
-						*currentJob.LeaseUntil,
-					)
-
-					if parseErr != nil {
-						log.Printf(
-							"failed to parse leaseUntil for job %s: %v",
-							job.JobID,
-							parseErr,
-						)
-
-						return false
-					}
-
-					waitDuration := time.Until(leaseUntil)
-
-					if waitDuration <= 0 {
-
-						log.Printf(
-							"job %s lease has expired; retrying claim",
-							job.JobID,
-						)
-
-						continue
-					}
-
-					waitDuration += 500 * time.Millisecond
-
-					log.Printf(
-						"job %s currently leased until %s; waiting %s before retry",
-						job.JobID,
-						leaseUntil.Format(time.RFC3339Nano),
-						waitDuration.Round(time.Millisecond),
-					)
-
-					timer := time.NewTimer(waitDuration)
-
-					select {
-
-					case <-timer.C:
-
-						log.Printf(
-							"job %s lease wait finished; retrying claim",
-							job.JobID,
-						)
-
-						continue
-
-					case <-ctx.Done():
-
-						timer.Stop()
-
-						log.Printf(
-							"worker %s stopped while waiting to retry job %s",
-							workerID,
-							job.JobID,
-						)
-
-						return false
-					}
-				}
-
-				log.Printf(
-					"job %s cannot currently be claimed: status=%s",
-					job.JobID,
-					currentJob.Status,
-				)
-
-				return false
-
-			case http.StatusNotFound:
-
-				log.Printf(
-					"job %s does not exist",
-					job.JobID,
-				)
-
-				return false
-
-			default:
-
-				log.Printf(
-					"control plane error for job %s: %v",
-					job.JobID,
-					claimErr,
-				)
-
-				return false
-			}
-		}
-
+	if err != nil {
 		log.Printf(
-			"job %s CLAIMED worker=%s attempt=%d",
+			"job %s rejected: %v",
+			job.JobID,
+			err,
+		)
+
+		return false
+	}
+
+	var claimedJob *client.JobResponse
+
+	/*
+		Keep attempting to claim this same Kafka message.
+
+		If another worker still owns an active lease,
+		we wait until that lease expires rather than
+		killing this worker.
+	*/
+	for {
+
+		jobResponse, claimErr := client.ClaimJob(
+			ctx,
 			job.JobID,
 			workerID,
-			claimedJob.Attempt,
 		)
 
-		executionCtx, cancelExecution := context.WithCancel(ctx)
-		defer cancelExecution()
-
-		heartbeatCtx, stopHeartbeat := context.WithCancel(ctx)
-
-		heartbeatDone := make(chan struct{})
-
-		go runLeaseHeartbeat(
-			heartbeatCtx,
-			job.JobID,
-			workerID,
-			cancelExecution,
-			heartbeatDone,
-		)
-
-		log.Printf(
-			"job %s RUNNING",
-			job.JobID,
-		)
-
-		execErr := executor.ExecuteSleep(
-			executionCtx,
-			job.Payload,
-		)
-
-		stopHeartbeat()
-		<-heartbeatDone
-
-		if execErr != nil {
-
-			if errors.Is(execErr, context.Canceled) {
-
-				if ctx.Err() != nil {
-
-					log.Printf(
-						"job %s interrupted because worker is shutting down",
-						job.JobID,
-					)
-
-				} else {
-
-					log.Printf(
-						"job %s interrupted because lease renewal failed",
-						job.JobID,
-					)
-				}
-
-				return false
-			}
-
-			log.Printf(
-				"job %s FAILED: %v",
-				job.JobID,
-				execErr,
-			)
-
-			if statusErr := client.UpdateJobStatus(
-				ctx,
-				job.JobID,
-				"FAILED",
-				workerID,
-			); statusErr != nil {
-
-				log.Printf(
-					"failed to mark job %s FAILED: %v",
-					job.JobID,
-					statusErr,
-				)
-
-				return false
-			}
-
-			log.Printf(
-				"job %s marked FAILED by worker %s",
-				job.JobID,
-				workerID,
-			)
-
+		if claimErr == nil {
+			claimedJob = jobResponse
 			break
 		}
 
+		var controlPlaneErr *client.ControlPlaneError
+
+		if !errors.As(
+			claimErr,
+			&controlPlaneErr,
+		) {
+
+			log.Printf(
+				"failed to contact control plane for job %s: %v",
+				job.JobID,
+				claimErr,
+			)
+
+			return false
+		}
+
+		switch controlPlaneErr.StatusCode {
+
+		case http.StatusConflict:
+
+			currentJob, getErr := client.GetJob(
+				ctx,
+				job.JobID,
+			)
+
+			if getErr != nil {
+				log.Printf(
+					"failed to get current state for job %s: %v",
+					job.JobID,
+					getErr,
+				)
+
+				return false
+			}
+
+			log.Printf(
+				"job %s conflict: current status=%s attempt=%d",
+				job.JobID,
+				currentJob.Status,
+				currentJob.Attempt,
+			)
+
+			/*
+				COMPLETED and FAILED are currently
+				terminal states.
+
+				If Kafka redelivers the message,
+				there is nothing left to execute.
+			*/
+			if currentJob.Status == "COMPLETED" ||
+				currentJob.Status == "FAILED" {
+
+				log.Printf(
+					"job %s already terminal with status=%s; committing duplicate Kafka message",
+					job.JobID,
+					currentJob.Status,
+				)
+
+				if err := reader.CommitMessages(
+					ctx,
+					message,
+				); err != nil {
+
+					log.Printf(
+						"failed to commit duplicate job %s: %v",
+						job.JobID,
+						err,
+					)
+
+					return false
+				}
+
+				return true
+			}
+
+			/*
+				A RUNNING job may belong to another
+				worker whose lease has not expired yet.
+			*/
+			if currentJob.Status == "RUNNING" &&
+				currentJob.LeaseUntil != nil {
+
+				leaseUntil, parseErr := time.Parse(
+					time.RFC3339Nano,
+					*currentJob.LeaseUntil,
+				)
+
+				if parseErr != nil {
+					log.Printf(
+						"failed to parse leaseUntil for job %s: %v",
+						job.JobID,
+						parseErr,
+					)
+
+					return false
+				}
+
+				waitDuration := time.Until(
+					leaseUntil,
+				)
+
+				/*
+					If our local clock says the lease
+					has already expired, retry immediately.
+
+					Spring/Mongo still makes the real
+					ownership decision.
+				*/
+				if waitDuration <= 0 {
+
+					log.Printf(
+						"job %s lease has expired; retrying claim",
+						job.JobID,
+					)
+
+					continue
+				}
+
+				/*
+					Small buffer prevents retrying exactly
+					on the expiration boundary.
+				*/
+				waitDuration += 500 * time.Millisecond
+
+				log.Printf(
+					"job %s currently leased until %s; waiting %s before retry",
+					job.JobID,
+					leaseUntil.Format(
+						time.RFC3339Nano,
+					),
+					waitDuration.Round(
+						time.Millisecond,
+					),
+				)
+
+				timer := time.NewTimer(
+					waitDuration,
+				)
+
+				select {
+
+				case <-timer.C:
+
+					log.Printf(
+						"job %s lease wait finished; retrying claim",
+						job.JobID,
+					)
+
+					continue
+
+				case <-ctx.Done():
+
+					timer.Stop()
+
+					log.Printf(
+						"worker %s stopped while waiting to retry job %s",
+						workerID,
+						job.JobID,
+					)
+
+					return false
+				}
+			}
+
+			log.Printf(
+				"job %s cannot currently be claimed: status=%s",
+				job.JobID,
+				currentJob.Status,
+			)
+
+			return false
+
+		case http.StatusNotFound:
+
+			log.Printf(
+				"job %s does not exist",
+				job.JobID,
+			)
+
+			return false
+
+		default:
+
+			log.Printf(
+				"control plane error for job %s: %v",
+				job.JobID,
+				claimErr,
+			)
+
+			return false
+		}
+	}
+
+	log.Printf(
+		"job %s CLAIMED worker=%s attempt=%d",
+		job.JobID,
+		workerID,
+		claimedJob.Attempt,
+	)
+
+	/*
+		executionCtx controls the actual executor.
+
+		If heartbeat renewal fails, the heartbeat
+		can cancel this context.
+	*/
+	executionCtx, cancelExecution :=
+		context.WithCancel(ctx)
+
+	defer cancelExecution()
+
+	/*
+		heartbeatCtx controls only the heartbeat.
+
+		When execution ends normally, we cancel
+		this context to stop lease renewal.
+	*/
+	heartbeatCtx, stopHeartbeat :=
+		context.WithCancel(ctx)
+
+	heartbeatDone := make(chan struct{})
+
+	go runLeaseHeartbeat(
+		heartbeatCtx,
+		job.JobID,
+		workerID,
+		cancelExecution,
+		heartbeatDone,
+	)
+
+	log.Printf(
+		"job %s RUNNING",
+		job.JobID,
+	)
+
+	/*
+		Execute through the shared Executor interface.
+
+		processMessage no longer needs to know whether
+		this is SLEEP, CPU, HTTP, etc.
+	*/
+	execErr := jobExecutor.Execute(
+		executionCtx,
+		job.Payload,
+	)
+
+	/*
+		Execution is finished.
+
+		Stop lease renewal and wait until the
+		heartbeat goroutine has completely exited.
+	*/
+	stopHeartbeat()
+	<-heartbeatDone
+
+	/*
+		There are two main branches:
+
+		    error   -> FAILED
+		    success -> COMPLETED
+
+		Both branches then fall through to the
+		common Kafka commit below.
+	*/
+	if execErr != nil {
+
+		/*
+			context.Canceled is special.
+
+			It means either:
+
+			1. the whole worker is shutting down, or
+			2. lease renewal failed and execution
+			   was deliberately cancelled.
+
+			In either case we do NOT mark the job FAILED.
+			Another worker should recover it later.
+		*/
+		if errors.Is(
+			execErr,
+			context.Canceled,
+		) {
+
+			if ctx.Err() != nil {
+
+				log.Printf(
+					"job %s interrupted because worker is shutting down",
+					job.JobID,
+				)
+
+			} else {
+
+				log.Printf(
+					"job %s interrupted because lease renewal failed",
+					job.JobID,
+				)
+			}
+
+			return false
+		}
+
+		/*
+			This is a genuine executor failure.
+		*/
+		log.Printf(
+			"job %s FAILED: %v",
+			job.JobID,
+			execErr,
+		)
+
+		if statusErr := client.UpdateJobStatus(
+			ctx,
+			job.JobID,
+			"FAILED",
+			workerID,
+		); statusErr != nil {
+
+			log.Printf(
+				"failed to mark job %s FAILED: %v",
+				job.JobID,
+				statusErr,
+			)
+
+			return false
+		}
+
+		log.Printf(
+			"job %s marked FAILED by worker %s",
+			job.JobID,
+			workerID,
+		)
+
+	} else {
+
+		/*
+			Executor completed successfully.
+		*/
 		if err := client.UpdateJobStatus(
 			ctx,
 			job.JobID,
@@ -410,17 +589,12 @@ func processMessage(
 			job.JobID,
 			workerID,
 		)
-
-	default:
-
-		log.Printf(
-			"unsupported job type: %s",
-			job.Type,
-		)
-
-		return false
 	}
 
+	/*
+		Only commit Kafka after the job has reached
+		a terminal state successfully.
+	*/
 	if err := reader.CommitMessages(
 		ctx,
 		message,
@@ -445,12 +619,16 @@ func runLeaseHeartbeat(
 	cancelExecution context.CancelFunc,
 	done chan<- struct{},
 ) {
+
 	defer close(done)
 
-	ticker := time.NewTicker(10 * time.Second)
+	ticker := time.NewTicker(
+		10 * time.Second,
+	)
 	defer ticker.Stop()
 
 	for {
+
 		select {
 
 		case <-ctx.Done():
@@ -464,7 +642,10 @@ func runLeaseHeartbeat(
 				workerID,
 			); err != nil {
 
-				// Heartbeat was intentionally stopped.
+				/*
+					If heartbeat was intentionally stopped
+					after execution finished, just exit.
+				*/
 				if ctx.Err() != nil {
 					return
 				}
@@ -475,8 +656,12 @@ func runLeaseHeartbeat(
 					err,
 				)
 
-				// We no longer know whether we own the job.
+				/*
+					We can no longer guarantee ownership
+					of this job, so stop execution.
+				*/
 				cancelExecution()
+
 				return
 			}
 
