@@ -1,6 +1,5 @@
 import {
     Activity,
-    Boxes,
     Cpu,
     Database,
     Server,
@@ -39,7 +38,11 @@ export default function ProjectInfoPanel() {
 
                 <div className="mt-2 flex items-center gap-3">
                     <div className="flex h-9 w-9 items-center justify-center rounded-lg border border-blue-500/20 bg-blue-500/10 text-blue-400">
-                        <Boxes size={16} />
+                        <img
+                            src="/taskflow.svg"
+                            alt="TaskFlow"
+                            className="h-8 w-8"
+                        />
                     </div>
 
                     <div>

@@ -30,16 +30,23 @@ services:
 
       KAFKA_PROCESS_ROLES: broker,controller
 
-      KAFKA_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093
+      # 9092  -> applications running on your Mac
+      # 29092 -> applications running inside Docker
+      # 9093  -> KRaft controller
+      KAFKA_LISTENERS: >
+        EXTERNAL://:9092, INTERNAL://:29092, CONTROLLER://:9093
 
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092
+      KAFKA_ADVERTISED_LISTENERS: >
+        EXTERNAL://localhost:9092, INTERNAL://kafka:29092
+
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: >
+        CONTROLLER:PLAINTEXT, EXTERNAL:PLAINTEXT, INTERNAL:PLAINTEXT
+
+      KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
 
       KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
 
-      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: >
-        CONTROLLER:PLAINTEXT, PLAINTEXT:PLAINTEXT
-
-      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@localhost:9093
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
 
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
 
@@ -49,10 +56,67 @@ services:
 
       KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
 
-      KAFKA_NUM_PARTITIONS: 3
+      KAFKA_NUM_PARTITIONS: 10
 
     volumes:
       - kafka_data:/var/lib/kafka/data
+
+  worker-a:
+    build:
+      context: ./worker-go
+
+    container_name: taskflow-worker-a
+
+    environment:
+      TASKFLOW_NODE_ID: worker-a
+      TASKFLOW_WORKER_CONCURRENCY: 3
+
+      TASKFLOW_KAFKA_BROKERS: kafka:29092
+      TASKFLOW_KAFKA_TOPIC: taskflow.jobs
+      TASKFLOW_KAFKA_GROUP_ID: taskflow-workers
+
+      TASKFLOW_CONTROL_PLANE_URL: http://host.docker.internal:8080
+
+    depends_on:
+      - kafka
+
+  worker-b:
+    build:
+      context: ./worker-go
+
+    container_name: taskflow-worker-b
+
+    environment:
+      TASKFLOW_NODE_ID: worker-b
+      TASKFLOW_WORKER_CONCURRENCY: 3
+
+      TASKFLOW_KAFKA_BROKERS: kafka:29092
+      TASKFLOW_KAFKA_TOPIC: taskflow.jobs
+      TASKFLOW_KAFKA_GROUP_ID: taskflow-workers
+
+      TASKFLOW_CONTROL_PLANE_URL: http://host.docker.internal:8080
+
+    depends_on:
+      - kafka
+
+  worker-c:
+    build:
+      context: ./worker-go
+
+    container_name: taskflow-worker-c
+
+    environment:
+      TASKFLOW_NODE_ID: worker-c
+      TASKFLOW_WORKER_CONCURRENCY: 3
+
+      TASKFLOW_KAFKA_BROKERS: kafka:29092
+      TASKFLOW_KAFKA_TOPIC: taskflow.jobs
+      TASKFLOW_KAFKA_GROUP_ID: taskflow-workers
+
+      TASKFLOW_CONTROL_PLANE_URL: http://host.docker.internal:8080
+
+    depends_on:
+      - kafka
 
 volumes:
   mongodb_data:

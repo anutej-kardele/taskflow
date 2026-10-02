@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/signal"
 	"strconv"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -22,34 +23,28 @@ import (
 
 func main() {
 	workerCount := getWorkerCount()
+	nodeID := getNodeID()
+	kafkaBrokers := getKafkaBrokers()
+	kafkaTopic := getKafkaTopic()
+	kafkaGroupID := getKafkaGroupID()
 
-	ctx, stop := signal.NotifyContext(
-		context.Background(),
-		os.Interrupt,
-		syscall.SIGTERM,
-	)
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
 	var wg sync.WaitGroup
 
-	log.Printf(
-		"TaskFlow starting with %d workers",
-		workerCount,
-	)
+	log.Printf("TaskFlow node=%s starting with %d worker slots", nodeID, workerCount)
 
-	for workerID := 1; workerID <= workerCount; workerID++ {
+	log.Printf("Kafka brokers=%v topic=%s group=%s", kafkaBrokers, kafkaTopic, kafkaGroupID)
+
+	for slotID := 1; slotID <= workerCount; slotID++ {
 		wg.Add(1)
-
-		go runWorker(
-			ctx,
-			workerID,
-			&wg,
-		)
+		go runWorker(ctx, nodeID, slotID, kafkaBrokers, kafkaTopic, kafkaGroupID, &wg)
 	}
 
 	wg.Wait()
 
-	log.Println("TaskFlow worker process stopped")
+	log.Printf("TaskFlow node=%s stopped", nodeID)
 }
 
 func getWorkerCount() int {
@@ -79,27 +74,121 @@ func getWorkerCount() int {
 	return workerCount
 }
 
+func getNodeID() string {
+	value := os.Getenv(
+		"TASKFLOW_NODE_ID",
+	)
+
+	if value != "" {
+		return value
+	}
+
+	/*
+		Local fallback.
+
+		PIDs make multiple worker processes on the
+		same machine distinguishable even when no
+		explicit node ID was configured.
+	*/
+	return fmt.Sprintf(
+		"local-%d",
+		os.Getpid(),
+	)
+}
+
+func getKafkaBrokers() []string {
+	value := os.Getenv(
+		"TASKFLOW_KAFKA_BROKERS",
+	)
+
+	if value == "" {
+		return []string{
+			"localhost:9092",
+		}
+	}
+
+	parts := strings.Split(
+		value,
+		",",
+	)
+
+	brokers := make(
+		[]string,
+		0,
+		len(parts),
+	)
+
+	for _, part := range parts {
+		broker :=
+			strings.TrimSpace(
+				part,
+			)
+
+		if broker != "" {
+			brokers =
+				append(
+					brokers,
+					broker,
+				)
+		}
+	}
+
+	if len(brokers) == 0 {
+		return []string{
+			"localhost:9092",
+		}
+	}
+
+	return brokers
+}
+
+func getKafkaTopic() string {
+	value := os.Getenv(
+		"TASKFLOW_KAFKA_TOPIC",
+	)
+
+	if value == "" {
+		return "taskflow.jobs"
+	}
+
+	return value
+}
+
+func getKafkaGroupID() string {
+	value := os.Getenv(
+		"TASKFLOW_KAFKA_GROUP_ID",
+	)
+
+	if value == "" {
+		return "taskflow-workers"
+	}
+
+	return value
+}
+
 func runWorker(
 	ctx context.Context,
-	workerID int,
+	nodeID string,
+	slotID int,
+	kafkaBrokers []string,
+	kafkaTopic string,
+	kafkaGroupID string,
 	wg *sync.WaitGroup,
 ) {
 
 	defer wg.Done()
 
 	workerInstanceID := fmt.Sprintf(
-		"taskflow-%d-worker-%d",
-		os.Getpid(),
-		workerID,
+		"%s-slot-%d",
+		nodeID,
+		slotID,
 	)
 
 	reader := kafka.NewReader(
 		kafka.ReaderConfig{
-			Brokers: []string{
-				"localhost:9092",
-			},
-			Topic:       "taskflow.jobs",
-			GroupID:     "taskflow-workers",
+			Brokers:     kafkaBrokers,
+			Topic:       kafkaTopic,
+			GroupID:     kafkaGroupID,
 			StartOffset: kafka.FirstOffset,
 		},
 	)

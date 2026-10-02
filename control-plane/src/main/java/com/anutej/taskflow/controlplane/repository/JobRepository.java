@@ -7,7 +7,6 @@ import org.springframework.data.mongodb.repository.MongoRepository;
 import com.anutej.taskflow.controlplane.model.Job;
 
 import java.time.Instant;
-import java.util.List;
 
 import com.anutej.taskflow.controlplane.model.JobStatus;
 

@@ -6,10 +6,27 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"os"
+	"strings"
 	"time"
 )
 
-const controlPlaneBaseURL = "http://localhost:8080"
+var controlPlaneBaseURL = getControlPlaneBaseURL()
+
+func getControlPlaneBaseURL() string {
+	value := os.Getenv(
+		"TASKFLOW_CONTROL_PLANE_URL",
+	)
+
+	if value == "" {
+		return "http://localhost:8080"
+	}
+
+	return strings.TrimRight(
+		value,
+		"/",
+	)
+}
 
 var httpClient = &http.Client{
 	Timeout: 10 * time.Second,
