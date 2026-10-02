@@ -67,6 +67,9 @@ export default function MobileWorkloadAccordion({
                     const running =
                         count("RUNNING");
 
+                    const retrying =
+                        count("RETRYING");
+
                     const completed =
                         count("COMPLETED");
 
@@ -84,6 +87,27 @@ export default function MobileWorkloadAccordion({
                                 100,
                             )
                             : 0;
+
+                    const reattempts =
+                        selectedJobs.reduce(
+                            (total, job) =>
+                                total +
+                                Math.max(
+                                    (job.attempt ??
+                                        0) - 1,
+                                    0,
+                                ),
+                            0,
+                        );
+
+                    const recovered =
+                        selectedJobs.filter(
+                            (job) =>
+                                job.status ===
+                                "COMPLETED" &&
+                                (job.attempt ??
+                                    0) > 1,
+                        ).length;
 
                     const workersUsed =
                         new Set(
@@ -108,18 +132,18 @@ export default function MobileWorkloadAccordion({
                                     )
                                 }
                                 className={`
-                  flex w-full
-                  items-center
-                  justify-between
-                  gap-3 px-4 py-3
-                  text-left
-                  transition
+                                    flex w-full
+                                    items-center
+                                    justify-between
+                                    gap-3 px-4 py-3
+                                    text-left
+                                    transition
 
-                  ${open
+                                    ${open
                                         ? "bg-blue-500/[0.07]"
                                         : "hover:bg-zinc-900/60"
                                     }
-                `}
+                                `}
                             >
                                 <div className="min-w-0 flex-1">
                                     <div className="flex items-center gap-2">
@@ -149,10 +173,15 @@ export default function MobileWorkloadAccordion({
                                         </span>
 
                                         <span
-                                            title={workload.id}
+                                            title={
+                                                workload.id
+                                            }
                                             className="max-w-[200px] truncate font-mono text-[8px] text-zinc-700"
                                         >
-                                            WorkloadID: {workload.id}
+                                            WorkloadID:{" "}
+                                            {
+                                                workload.id
+                                            }
                                         </span>
                                     </div>
                                 </div>
@@ -160,15 +189,15 @@ export default function MobileWorkloadAccordion({
                                 <ChevronDown
                                     size={16}
                                     className={`
-                    shrink-0
-                    transition-transform
-                    duration-200
+                                        shrink-0
+                                        transition-transform
+                                        duration-200
 
-                    ${open
+                                        ${open
                                             ? "rotate-180 text-blue-400"
                                             : "text-zinc-600"
                                         }
-                  `}
+                                    `}
                                 />
                             </button>
 
@@ -182,20 +211,26 @@ export default function MobileWorkloadAccordion({
                                                 </p>
 
                                                 <p className="mt-1 text-lg font-semibold text-blue-300">
-                                                    {progress}%
+                                                    {
+                                                        progress
+                                                    }
+                                                    %
                                                 </p>
                                             </div>
 
                                             <div className="flex items-center gap-1.5 text-[10px] text-zinc-600">
                                                 <Users
-                                                    size={12}
+                                                    size={
+                                                        12
+                                                    }
                                                 />
 
                                                 {
                                                     workersUsed
                                                 }{" "}
                                                 worker
-                                                {workersUsed === 1
+                                                {workersUsed ===
+                                                    1
                                                     ? ""
                                                     : "s"}
                                             </div>
@@ -228,6 +263,14 @@ export default function MobileWorkloadAccordion({
                                         />
 
                                         <MiniStat
+                                            label="Retrying"
+                                            value={
+                                                retrying
+                                            }
+                                            warning
+                                        />
+
+                                        <MiniStat
                                             label="Completed"
                                             value={
                                                 completed
@@ -238,6 +281,20 @@ export default function MobileWorkloadAccordion({
                                             label="Failed"
                                             value={
                                                 failed
+                                            }
+                                        />
+
+                                        <MiniStat
+                                            label="Re-attempts"
+                                            value={
+                                                reattempts
+                                            }
+                                        />
+
+                                        <MiniStat
+                                            label="Recovered"
+                                            value={
+                                                recovered
                                             }
                                         />
 
@@ -260,54 +317,113 @@ export default function MobileWorkloadAccordion({
                                             {selectedJobs.length ===
                                                 0 ? (
                                                 <div className="px-4 py-8 text-center text-xs text-zinc-600">
-                                                    Loading jobs...
+                                                    Loading
+                                                    jobs...
                                                 </div>
                                             ) : (
                                                 selectedJobs.map(
-                                                    (job) => (
-                                                        <div
-                                                            key={
-                                                                job.id
-                                                            }
-                                                            className="flex items-center justify-between gap-3 border-t border-zinc-900 px-4 py-2.5"
-                                                        >
-                                                            <div className="min-w-0">
-                                                                <p
-                                                                    title={
-                                                                        job.id
-                                                                    }
-                                                                    className="max-w-[170px] truncate font-mono text-[9px] text-zinc-400"
-                                                                >
-                                                                    {
-                                                                        job.id
-                                                                    }
-                                                                </p>
+                                                    (
+                                                        job,
+                                                    ) => {
+                                                        const maxAttempts =
+                                                            job.maxAttempts >
+                                                                0
+                                                                ? job.maxAttempts
+                                                                : 3;
 
-                                                                <p
-                                                                    title={
-                                                                        job.workerId ??
-                                                                        ""
-                                                                    }
-                                                                    className="mt-0.5 max-w-[170px] truncate font-mono text-[8px] text-zinc-700"
-                                                                >
-                                                                    {job.workerId ??
-                                                                        "No worker assigned"}
-                                                                </p>
+                                                        return (
+                                                            <div
+                                                                key={
+                                                                    job.id
+                                                                }
+                                                                className="border-t border-zinc-900 px-4 py-2.5"
+                                                            >
+                                                                <div className="flex items-center justify-between gap-3">
+                                                                    <div className="min-w-0">
+                                                                        <p
+                                                                            title={
+                                                                                job.id
+                                                                            }
+                                                                            className="max-w-[170px] truncate font-mono text-[9px] text-zinc-400"
+                                                                        >
+                                                                            {
+                                                                                job.id
+                                                                            }
+                                                                        </p>
+
+                                                                        <p
+                                                                            title={
+                                                                                job.workerId ??
+                                                                                ""
+                                                                            }
+                                                                            className="mt-0.5 max-w-[170px] truncate font-mono text-[8px] text-zinc-700"
+                                                                        >
+                                                                            {job.workerId ??
+                                                                                "No worker assigned"}
+                                                                        </p>
+                                                                    </div>
+
+                                                                    <div className="flex shrink-0 items-center gap-2">
+                                                                        <span className="font-mono text-[8px] text-zinc-600">
+                                                                            {
+                                                                                job.attempt
+                                                                            }
+                                                                            /
+                                                                            {
+                                                                                maxAttempts
+                                                                            }
+                                                                        </span>
+
+                                                                        <StatusBadge
+                                                                            status={
+                                                                                job.status
+                                                                            }
+                                                                        />
+                                                                    </div>
+                                                                </div>
+
+                                                                {job.lastError && (
+                                                                    <p
+                                                                        title={
+                                                                            job.lastError
+                                                                        }
+                                                                        className={`
+                                                                            mt-1.5
+                                                                            truncate
+                                                                            font-mono
+                                                                            text-[8px]
+
+                                                                            ${job.status ===
+                                                                                "FAILED"
+                                                                                ? "text-red-400/70"
+                                                                                : "text-amber-400/60"
+                                                                            }
+                                                                        `}
+                                                                    >
+                                                                        {job.status ===
+                                                                            "COMPLETED"
+                                                                            ? "Recovered from: "
+                                                                            : "Last error: "}
+
+                                                                        {
+                                                                            job.lastError
+                                                                        }
+                                                                    </p>
+                                                                )}
+
+                                                                {job.status ===
+                                                                    "RETRYING" &&
+                                                                    job.nextRetryAt && (
+                                                                        <p className="mt-1 font-mono text-[8px] text-amber-500/60">
+                                                                            Retry{" "}
+                                                                            {formatRetryTime(
+                                                                                job.nextRetryAt,
+                                                                            )}
+                                                                        </p>
+                                                                    )}
                                                             </div>
-
-                                                            <div className="flex shrink-0 items-center gap-2">
-                                                                <span className="font-mono text-[8px] text-zinc-600">
-                                                                    #{job.attempt}
-                                                                </span>
-
-                                                                <StatusBadge
-                                                                    status={
-                                                                        job.status
-                                                                    }
-                                                                />
-                                                            </div>
-                                                        </div>
-                                                    ),
+                                                        );
+                                                    },
                                                 )
                                             )}
                                         </div>
@@ -326,18 +442,21 @@ function MiniStat({
     label,
     value,
     accent = false,
+    warning = false,
 }) {
     return (
         <div
             className={`
-        rounded-md border
-        px-2.5 py-2
+                rounded-md border
+                px-2.5 py-2
 
-        ${accent
-                    ? "border-blue-500/20 bg-blue-500/[0.06]"
-                    : "border-zinc-800 bg-[#05070b]"
+                ${warning
+                    ? "border-amber-500/20 bg-amber-500/[0.05]"
+                    : accent
+                        ? "border-blue-500/20 bg-blue-500/[0.06]"
+                        : "border-zinc-800 bg-[#05070b]"
                 }
-      `}
+            `}
         >
             <p className="font-mono text-[7px] uppercase tracking-wider text-zinc-600">
                 {label}
@@ -345,16 +464,32 @@ function MiniStat({
 
             <p
                 className={`
-          mt-1 text-sm font-semibold
+                    mt-1 text-sm font-semibold
 
-          ${accent
-                        ? "text-blue-300"
-                        : "text-zinc-200"
+                    ${warning
+                        ? "text-amber-300"
+                        : accent
+                            ? "text-blue-300"
+                            : "text-zinc-200"
                     }
-        `}
+                `}
             >
                 {value}
             </p>
         </div>
     );
+}
+
+function formatRetryTime(value) {
+    const date = new Date(value);
+
+    if (Number.isNaN(date.getTime())) {
+        return value;
+    }
+
+    return `at ${date.toLocaleTimeString([], {
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+    })}`;
 }

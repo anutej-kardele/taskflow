@@ -21,12 +21,15 @@ type UpdateStatusRequest struct {
 }
 
 type JobResponse struct {
-	ID         string  `json:"id"`
-	Status     string  `json:"status"`
-	Attempt    int     `json:"attempt"`
-	WorkerID   *string `json:"workerId"`
-	StartedAt  *string `json:"startedAt"`
-	LeaseUntil *string `json:"leaseUntil"`
+	ID          string  `json:"id"`
+	Status      string  `json:"status"`
+	Attempt     int     `json:"attempt"`
+	MaxAttempts int     `json:"maxAttempts"`
+	LastError   *string `json:"lastError"`
+	NextRetryAt *string `json:"nextRetryAt"`
+	WorkerID    *string `json:"workerId"`
+	StartedAt   *string `json:"startedAt"`
+	LeaseUntil  *string `json:"leaseUntil"`
 }
 
 type ControlPlaneError struct {
@@ -47,6 +50,11 @@ type ClaimJobRequest struct {
 
 type RenewLeaseRequest struct {
 	WorkerID string `json:"workerId"`
+}
+
+type ReportJobFailureRequest struct {
+	WorkerID string `json:"workerId"`
+	Error    string `json:"error"`
 }
 
 func UpdateJobStatus(ctx context.Context, jobID string, status string, workerID string) error {
@@ -120,7 +128,7 @@ func GetJob(ctx context.Context, jobID string) (*JobResponse, error) {
 	return &job, nil
 }
 
-func ClaimJob(ctx context.Context, jobID string, workerID string,) (*JobResponse, error) {
+func ClaimJob(ctx context.Context, jobID string, workerID string) (*JobResponse, error) {
 
 	payload := ClaimJobRequest{
 		WorkerID: workerID,
@@ -242,4 +250,87 @@ func RenewLease(
 	}
 
 	return nil
+}
+
+func ReportJobFailure(
+	ctx context.Context,
+	jobID string,
+	workerID string,
+	errorMessage string,
+) (*JobResponse, error) {
+
+	payload := ReportJobFailureRequest{
+		WorkerID: workerID,
+		Error:    errorMessage,
+	}
+
+	jsonData, err := json.Marshal(payload)
+	if err != nil {
+		return nil, fmt.Errorf(
+			"failed to marshal failure request: %w",
+			err,
+		)
+	}
+
+	requestCtx, cancel := context.WithTimeout(
+		ctx,
+		5*time.Second,
+	)
+	defer cancel()
+
+	url := fmt.Sprintf(
+		"%s/api/jobs/%s/failure",
+		controlPlaneBaseURL,
+		jobID,
+	)
+
+	req, err := http.NewRequestWithContext(
+		requestCtx,
+		http.MethodPatch,
+		url,
+		bytes.NewReader(jsonData),
+	)
+	if err != nil {
+		return nil, fmt.Errorf(
+			"failed to create failure request: %w",
+			err,
+		)
+	}
+
+	req.Header.Set(
+		"Content-Type",
+		"application/json",
+	)
+
+	resp, err := httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf(
+			"failure report request failed: %w",
+			err,
+		)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode < 200 ||
+		resp.StatusCode >= 300 {
+
+		return nil, &ControlPlaneError{
+			StatusCode: resp.StatusCode,
+			Status:     resp.Status,
+		}
+	}
+
+	var job JobResponse
+
+	if err := json.NewDecoder(
+		resp.Body,
+	).Decode(&job); err != nil {
+
+		return nil, fmt.Errorf(
+			"failed to decode failure response: %w",
+			err,
+		)
+	}
+
+	return &job, nil
 }

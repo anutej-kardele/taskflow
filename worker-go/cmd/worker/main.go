@@ -280,10 +280,11 @@ func processMessage(
 				there is nothing left to execute.
 			*/
 			if currentJob.Status == "COMPLETED" ||
-				currentJob.Status == "FAILED" {
+				currentJob.Status == "FAILED" ||
+				currentJob.Status == "RETRYING" {
 
 				log.Printf(
-					"job %s already terminal with status=%s; committing duplicate Kafka message",
+					"job %s already handled with status=%s; committing stale Kafka message",
 					job.JobID,
 					currentJob.Status,
 				)
@@ -540,27 +541,64 @@ func processMessage(
 			execErr,
 		)
 
-		if statusErr := client.UpdateJobStatus(
-			ctx,
-			job.JobID,
-			"FAILED",
-			workerID,
-		); statusErr != nil {
+		failureResult, failureErr :=
+			client.ReportJobFailure(
+				ctx,
+				job.JobID,
+				workerID,
+				execErr.Error(),
+			)
+
+		if failureErr != nil {
 
 			log.Printf(
-				"failed to mark job %s FAILED: %v",
+				"failed to report execution failure for job %s: %v",
 				job.JobID,
-				statusErr,
+				failureErr,
 			)
 
 			return false
 		}
 
-		log.Printf(
-			"job %s marked FAILED by worker %s",
-			job.JobID,
-			workerID,
-		)
+		switch failureResult.Status {
+
+		case "RETRYING":
+
+			log.Printf(
+				"job %s scheduled for retry after attempt %d/%d",
+				job.JobID,
+				failureResult.Attempt,
+				failureResult.MaxAttempts,
+			)
+
+			if failureResult.NextRetryAt != nil {
+
+				log.Printf(
+					"job %s next retry at %s",
+					job.JobID,
+					*failureResult.NextRetryAt,
+				)
+			}
+
+		case "FAILED":
+
+			log.Printf(
+				"job %s permanently FAILED after attempt %d/%d",
+				job.JobID,
+				failureResult.Attempt,
+				failureResult.MaxAttempts,
+			)
+
+		default:
+
+			log.Printf(
+				"job %s returned unexpected failure state=%s",
+				job.JobID,
+				failureResult.Status,
+			)
+
+			return false
+		}
 
 	} else {
 
@@ -591,10 +629,6 @@ func processMessage(
 		)
 	}
 
-	/*
-		Only commit Kafka after the job has reached
-		a terminal state successfully.
-	*/
 	if err := reader.CommitMessages(
 		ctx,
 		message,

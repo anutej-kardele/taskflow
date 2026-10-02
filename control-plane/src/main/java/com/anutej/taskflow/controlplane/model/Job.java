@@ -20,6 +20,14 @@ public class Job {
 
     private int attempt;
 
+    private static final int DEFAULT_MAX_ATTEMPTS = 3;
+
+    private int maxAttempts = DEFAULT_MAX_ATTEMPTS;
+
+    private String lastError;
+
+    private Instant nextRetryAt;
+
     private String workerId;
 
     private Instant startedAt;
@@ -129,5 +137,29 @@ public class Job {
 
     public void setLeaseUntil(Instant leaseUntil) {
         this.leaseUntil = leaseUntil;
+    }
+
+    public int getMaxAttempts() {
+        return maxAttempts;
+    }
+
+    public void setMaxAttempts(int maxAttempts) {
+        this.maxAttempts = maxAttempts;
+    }
+
+    public String getLastError() {
+        return lastError;
+    }
+
+    public void setLastError(String lastError) {
+        this.lastError = lastError;
+    }
+
+    public Instant getNextRetryAt() {
+        return nextRetryAt;
+    }
+
+    public void setNextRetryAt(Instant nextRetryAt) {
+        this.nextRetryAt = nextRetryAt;
     }
 }

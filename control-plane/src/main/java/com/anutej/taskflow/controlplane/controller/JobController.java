@@ -17,6 +17,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import com.anutej.taskflow.controlplane.dto.ClaimJobRequest;
 import com.anutej.taskflow.controlplane.dto.RenewLeaseRequest;
 import com.anutej.taskflow.controlplane.dto.UpdateJobStatusRequest;
+import com.anutej.taskflow.controlplane.dto.ReportJobFailureRequest;
 
 import jakarta.validation.Valid;
 
@@ -86,6 +87,29 @@ public class JobController {
         JobStatusUpdateResult result = jobService.renewLease(
                 id,
                 request.workerId());
+
+        return switch (result.outcome()) {
+
+            case UPDATED ->
+                ResponseEntity.ok(result.job());
+
+            case NOT_FOUND ->
+                ResponseEntity.notFound().build();
+
+            case CONFLICT ->
+                ResponseEntity.status(409).build();
+        };
+    }
+
+    @PatchMapping("/{id}/failure")
+    public ResponseEntity<Job> reportJobFailure(
+            @PathVariable String id,
+            @Valid @RequestBody ReportJobFailureRequest request) {
+
+        JobStatusUpdateResult result = jobService.reportJobFailure(
+                id,
+                request.workerId(),
+                request.error());
 
         return switch (result.outcome()) {
 

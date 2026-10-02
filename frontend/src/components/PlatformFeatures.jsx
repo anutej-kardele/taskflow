@@ -1,12 +1,19 @@
 import {
     Activity,
+    Boxes,
     LockKeyhole,
     Radio,
-    RefreshCcw,
     Server,
 } from "lucide-react";
 
 const features = [
+    {
+        title: "Multi-worker Scaling",
+        description:
+            "Run multiple independent Go worker processes and distribute execution through Kafka.",
+        phase: "Distributed workers",
+        icon: Boxes,
+    },
     {
         title: "Execution Capacity",
         description:
@@ -15,23 +22,16 @@ const features = [
         icon: Server,
     },
     {
-        title: "Retry Analytics",
-        description:
-            "Attempts, backoff and failure recovery.",
-        phase: "Retry system",
-        icon: RefreshCcw,
-    },
-    {
         title: "Live Events",
         description:
-            "Streaming workload and job transitions.",
+            "Streaming workload and job transitions without REST polling.",
         phase: "SSE",
         icon: Radio,
     },
     {
         title: "Observability",
         description:
-            "Throughput, latency and runtime metrics.",
+            "Throughput, latency, queue depth and runtime metrics.",
         phase: "Metrics",
         icon: Activity,
     },
@@ -66,17 +66,13 @@ export default function PlatformFeatures() {
                     }) => (
                         <div
                             key={title}
-                            className="
-                relative
-                rounded-lg
-                border border-zinc-800
-                bg-[#07090d]
-                p-3
-              "
+                            className="relative rounded-lg border border-zinc-800 bg-[#07090d] p-3"
                         >
                             <div className="flex items-start justify-between">
                                 <div className="flex h-7 w-7 items-center justify-center rounded-md border border-blue-500/15 bg-blue-500/[0.06] text-blue-500/60">
-                                    <Icon size={13} />
+                                    <Icon
+                                        size={13}
+                                    />
                                 </div>
 
                                 <div className="flex items-center gap-1 font-mono text-[7px] uppercase tracking-wider text-zinc-700">

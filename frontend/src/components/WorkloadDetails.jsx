@@ -38,8 +38,8 @@ export default function WorkloadDetails({
 
     const queued = count("QUEUED");
     const running = count("RUNNING");
-    const completed =
-        count("COMPLETED");
+    const retrying = count("RETRYING");
+    const completed = count("COMPLETED");
     const failed = count("FAILED");
 
     const terminal =
@@ -55,10 +55,40 @@ export default function WorkloadDetails({
             : 0;
 
     /*
-     * This is not "live workers".
+     * attempt begins at 1 on the first claim.
      *
-     * It represents how many distinct TaskFlow worker IDs
-     * have executed jobs belonging to this workload.
+     * attempt 1 -> 0 additional attempts
+     * attempt 2 -> 1 additional attempt
+     * attempt 3 -> 2 additional attempts
+     *
+     * This can include both retry claims and
+     * crash/lease recovery claims.
+     */
+    const reattempts =
+        jobs.reduce(
+            (total, job) =>
+                total +
+                Math.max(
+                    (job.attempt ?? 0) - 1,
+                    0,
+                ),
+            0,
+        );
+
+    /*
+     * A recovered job is one that eventually completed
+     * after requiring more than one execution attempt.
+     */
+    const recovered =
+        jobs.filter(
+            (job) =>
+                job.status === "COMPLETED" &&
+                (job.attempt ?? 0) > 1,
+        ).length;
+
+    /*
+     * Distinct worker IDs represented by the latest
+     * persisted job ownership/execution information.
      */
     const workersUsed =
         new Set(
@@ -125,7 +155,7 @@ export default function WorkloadDetails({
                 </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-2 p-4 sm:grid-cols-3 xl:grid-cols-5">
+            <div className="grid grid-cols-2 gap-2 p-4 sm:grid-cols-4">
                 <StatCard
                     label="Queued"
                     value={queued}
@@ -135,6 +165,11 @@ export default function WorkloadDetails({
                     label="Running"
                     value={running}
                     accent
+                />
+
+                <StatCard
+                    label="Retrying"
+                    value={retrying}
                 />
 
                 <StatCard
@@ -148,16 +183,30 @@ export default function WorkloadDetails({
                 />
 
                 <StatCard
+                    label="Re-attempts"
+                    value={reattempts}
+                />
+
+                <StatCard
+                    label="Recovered"
+                    value={recovered}
+                />
+
+                <StatCard
                     label="Workers Used"
                     value={workersUsed}
                 />
             </div>
 
             <div className="border-t border-zinc-800">
-                <div className="px-4 py-3">
+                <div className="flex items-center justify-between px-4 py-3">
                     <h3 className="text-xs font-medium text-zinc-300">
                         Jobs
                     </h3>
+
+                    <p className="font-mono text-[8px] uppercase tracking-wider text-zinc-700">
+                        attempt / max
+                    </p>
                 </div>
 
                 <div className="taskflow-scroll max-h-[390px] overflow-auto">
@@ -183,46 +232,102 @@ export default function WorkloadDetails({
                         </thead>
 
                         <tbody>
-                            {jobs.map((job) => (
-                                <tr
-                                    key={job.id}
-                                    className="border-t border-zinc-900 text-xs"
-                                >
-                                    <td className="px-4 py-2.5">
-                                        <p
-                                            title={job.id}
-                                            className="max-w-[190px] truncate font-mono text-[9px] text-zinc-400"
-                                        >
-                                            {job.id}
-                                        </p>
-                                    </td>
+                            {jobs.map((job) => {
+                                const maxAttempts =
+                                    job.maxAttempts > 0
+                                        ? job.maxAttempts
+                                        : 3;
 
-                                    <td className="px-4 py-2.5">
-                                        <StatusBadge
-                                            status={
-                                                job.status
-                                            }
-                                        />
-                                    </td>
+                                return (
+                                    <tr
+                                        key={job.id}
+                                        className="border-t border-zinc-900 text-xs"
+                                    >
+                                        <td className="px-4 py-2.5">
+                                            <p
+                                                title={job.id}
+                                                className="max-w-[190px] truncate font-mono text-[9px] text-zinc-400"
+                                            >
+                                                {job.id}
+                                            </p>
 
-                                    <td className="hidden px-4 py-2.5 font-mono text-[10px] text-zinc-500 sm:table-cell">
-                                        {job.attempt}
-                                    </td>
+                                            {job.lastError && (
+                                                <p
+                                                    title={
+                                                        job.lastError
+                                                    }
+                                                    className={`
+                                                        mt-1
+                                                        max-w-[240px]
+                                                        truncate
+                                                        font-mono
+                                                        text-[8px]
 
-                                    <td className="hidden px-4 py-2.5 lg:table-cell">
-                                        <p
-                                            title={
-                                                job.workerId ??
-                                                ""
-                                            }
-                                            className="max-w-[210px] truncate font-mono text-[9px] text-zinc-600"
-                                        >
-                                            {job.workerId ??
-                                                "—"}
-                                        </p>
-                                    </td>
-                                </tr>
-                            ))}
+                                                        ${job.status ===
+                                                            "FAILED"
+                                                            ? "text-red-400/70"
+                                                            : "text-amber-400/60"
+                                                        }
+                                                    `}
+                                                >
+                                                    {job.status ===
+                                                        "COMPLETED"
+                                                        ? "Recovered from: "
+                                                        : "Last error: "}
+
+                                                    {
+                                                        job.lastError
+                                                    }
+                                                </p>
+                                            )}
+
+                                            {job.status ===
+                                                "RETRYING" &&
+                                                job.nextRetryAt && (
+                                                    <p className="mt-1 font-mono text-[8px] text-amber-500/60">
+                                                        Retry{" "}
+                                                        {formatRetryTime(
+                                                            job.nextRetryAt,
+                                                        )}
+                                                    </p>
+                                                )}
+                                        </td>
+
+                                        <td className="px-4 py-2.5">
+                                            <StatusBadge
+                                                status={
+                                                    job.status
+                                                }
+                                            />
+                                        </td>
+
+                                        <td className="hidden px-4 py-2.5 sm:table-cell">
+                                            <span className="font-mono text-[10px] text-zinc-400">
+                                                {
+                                                    job.attempt
+                                                }
+                                                /
+                                                {
+                                                    maxAttempts
+                                                }
+                                            </span>
+                                        </td>
+
+                                        <td className="hidden px-4 py-2.5 lg:table-cell">
+                                            <p
+                                                title={
+                                                    job.workerId ??
+                                                    ""
+                                                }
+                                                className="max-w-[210px] truncate font-mono text-[9px] text-zinc-600"
+                                            >
+                                                {job.workerId ??
+                                                    "—"}
+                                            </p>
+                                        </td>
+                                    </tr>
+                                );
+                            })}
 
                             {jobs.length === 0 && (
                                 <tr>
@@ -240,4 +345,18 @@ export default function WorkloadDetails({
             </div>
         </section>
     );
+}
+
+function formatRetryTime(value) {
+    const date = new Date(value);
+
+    if (Number.isNaN(date.getTime())) {
+        return value;
+    }
+
+    return `at ${date.toLocaleTimeString([], {
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+    })}`;
 }

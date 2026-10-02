@@ -48,8 +48,9 @@ export default function ProjectInfoPanel() {
                         </h2>
 
                         <p className="mt-0.5 text-xs text-zinc-500">
-                            A distributed system for scheduling,
-                            executing and observing batches of jobs.
+                            A distributed-systems project for
+                            scheduling, executing and recovering
+                            batches of jobs.
                         </p>
                     </div>
                 </div>
@@ -59,9 +60,10 @@ export default function ProjectInfoPanel() {
                 <p className="max-w-2xl text-xs leading-6 text-zinc-500">
                     TaskFlow separates workload coordination from
                     execution. The Spring Boot control plane persists
-                    workload state, Kafka distributes jobs, and
-                    concurrent Go workers claim and execute work using
-                    leases and heartbeats for failure recovery.
+                    durable state and retry policy, Kafka distributes
+                    jobs, and concurrent Go workers claim and execute
+                    work using leases and heartbeats for failure
+                    recovery.
                 </p>
 
                 <div className="mt-5 grid grid-cols-2 gap-3">
@@ -77,7 +79,9 @@ export default function ProjectInfoPanel() {
                             >
                                 <div className="flex items-center gap-2">
                                     <div className="flex h-7 w-7 items-center justify-center rounded-md border border-blue-500/15 bg-blue-500/[0.06] text-blue-400">
-                                        <Icon size={12} />
+                                        <Icon
+                                            size={12}
+                                        />
                                     </div>
 
                                     <div>
@@ -101,19 +105,53 @@ export default function ProjectInfoPanel() {
                     </p>
 
                     <div className="mt-3 grid gap-x-8 gap-y-2 text-[11px] text-zinc-500 sm:grid-cols-2">
-                        <p>• SLEEP, CPU, HTTP and UNRELIABLE jobs</p>
-                        <p>• Configurable concurrent Go workers</p>
-                        <p>• Kafka consumer-group job delivery</p>
-                        <p>• Atomic job claiming and leases</p>
-                        <p>• Worker heartbeats and crash recovery</p>
-                        <p>• Live dashboard through REST polling</p>
+                        <p>
+                            • SLEEP, CPU, HTTP and
+                            UNRELIABLE jobs
+                        </p>
+
+                        <p>
+                            • Configurable concurrent
+                            Go workers
+                        </p>
+
+                        <p>
+                            • Kafka consumer-group job
+                            delivery
+                        </p>
+
+                        <p>
+                            • Atomic job claiming and
+                            leases
+                        </p>
+
+                        <p>
+                            • Heartbeats and crash
+                            recovery
+                        </p>
+
+                        <p>
+                            • Delayed retries with
+                            maximum attempts
+                        </p>
+
+                        <p>
+                            • Retry error and recovery
+                            tracking
+                        </p>
+
+                        <p>
+                            • Live dashboard through
+                            REST polling
+                        </p>
                     </div>
                 </div>
             </div>
 
             <div className="border-t border-zinc-800 px-5 py-3">
                 <p className="font-mono text-[8px] uppercase tracking-wider text-zinc-700">
-                    Select a workload from the execution history to inspect it
+                    Select a workload from the execution
+                    history to inspect it
                 </p>
             </div>
         </section>

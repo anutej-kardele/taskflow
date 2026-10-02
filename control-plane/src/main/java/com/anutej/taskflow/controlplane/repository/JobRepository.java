@@ -6,7 +6,16 @@ import org.springframework.data.mongodb.repository.MongoRepository;
 
 import com.anutej.taskflow.controlplane.model.Job;
 
+import java.time.Instant;
+import java.util.List;
+
+import com.anutej.taskflow.controlplane.model.JobStatus;
+
 public interface JobRepository extends MongoRepository<Job, String> {
 
     List<Job> findByWorkloadId(String workloadId);
+
+    List<Job> findByStatusAndNextRetryAtLessThanEqual(
+            JobStatus status,
+            Instant nextRetryAt);
 }
