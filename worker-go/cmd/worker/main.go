@@ -17,6 +17,7 @@ import (
 
 	"github.com/anutej-kardele/taskflow/worker-go/internal/client"
 	"github.com/anutej-kardele/taskflow/worker-go/internal/executor"
+	"github.com/anutej-kardele/taskflow/worker-go/internal/health"
 	"github.com/anutej-kardele/taskflow/worker-go/internal/model"
 	"github.com/segmentio/kafka-go"
 )
@@ -28,14 +29,22 @@ func main() {
 	kafkaTopic := getKafkaTopic()
 	kafkaGroupID := getKafkaGroupID()
 
+	redisAddr := getRedisAddr()
+	startedAt := time.Now().UTC()
+
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
 	var wg sync.WaitGroup
 
+	healthDone := make(chan struct{})
+	go health.RunHeartbeat(ctx, redisAddr, nodeID, workerCount, startedAt, healthDone)
+
 	log.Printf("TaskFlow node=%s starting with %d worker slots", nodeID, workerCount)
 
 	log.Printf("Kafka brokers=%v topic=%s group=%s", kafkaBrokers, kafkaTopic, kafkaGroupID)
+
+	log.Printf("Redis health=%s", redisAddr)
 
 	for slotID := 1; slotID <= workerCount; slotID++ {
 		wg.Add(1)
@@ -43,8 +52,22 @@ func main() {
 	}
 
 	wg.Wait()
+	<-healthDone
 
 	log.Printf("TaskFlow node=%s stopped", nodeID)
+}
+
+func getRedisAddr() string {
+
+	value := os.Getenv(
+		"TASKFLOW_REDIS_ADDR",
+	)
+
+	if value == "" {
+		return "localhost:6379"
+	}
+
+	return value
 }
 
 func getWorkerCount() int {

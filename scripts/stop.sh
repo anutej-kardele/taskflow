@@ -70,9 +70,11 @@ docker compose stop \
     worker-c
 
 echo ""
-echo "Stopping Kafka..."
+echo "Stopping Kafka and Redis..."
 
-docker compose stop kafka
+docker compose stop \
+    kafka \
+    redis
 
 echo ""
 echo "MongoDB will remain running."

@@ -64,3 +64,29 @@ export async function createMultipleWorkloads(
         ),
     );
 }
+
+export function getWorkers() {
+    return request("/workers");
+}
+
+export function killWorker(
+    nodeId,
+) {
+    return request(
+        `/workers/${encodeURIComponent(nodeId)}/kill`,
+        {
+            method: "POST",
+        },
+    );
+}
+
+export function startWorker(
+    nodeId,
+) {
+    return request(
+        `/workers/${encodeURIComponent(nodeId)}/start`,
+        {
+            method: "POST",
+        },
+    );
+}

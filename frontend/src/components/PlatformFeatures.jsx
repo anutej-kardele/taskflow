@@ -8,32 +8,32 @@ import {
 
 const features = [
     {
-        title: "Multi-worker Scaling",
-        description:
-            "Run multiple independent Go worker processes and distribute execution through Kafka.",
-        phase: "Distributed workers",
-        icon: Boxes,
-    },
-    {
-        title: "Execution Capacity",
-        description:
-            "Live worker processes, concurrency slots, logical CPUs and active jobs.",
-        phase: "Worker health",
-        icon: Server,
-    },
-    {
         title: "Live Events",
         description:
-            "Streaming workload and job transitions without REST polling.",
-        phase: "SSE",
+            "Stream workload, job and worker transitions without REST polling.",
+        phase: "Server-Sent Events",
         icon: Radio,
     },
     {
         title: "Observability",
         description:
-            "Throughput, latency, queue depth and runtime metrics.",
+            "Measure throughput, latency, queue depth and runtime behavior.",
         phase: "Metrics",
         icon: Activity,
+    },
+    {
+        title: "Failure Experiments",
+        description:
+            "Exercise controlled worker, infrastructure and delivery failures.",
+        phase: "Failure testing",
+        icon: Boxes,
+    },
+    {
+        title: "Kubernetes",
+        description:
+            "Deploy TaskFlow services and horizontally scaled workers to Kubernetes.",
+        phase: "Orchestration",
+        icon: Server,
     },
 ];
 

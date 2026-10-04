@@ -17,10 +17,14 @@ import ProjectInfoPanel from "./components/ProjectInfoPanel";
 import WorkloadComposer from "./components/WorkloadComposer";
 import WorkloadDetails from "./components/WorkloadDetails";
 import WorkloadList from "./components/WorkloadList";
+import WorkerClusterPanel from "./components/WorkerClusterPanel";
 
 import {
+  getWorkers,
   getWorkloadJobs,
   getWorkloads,
+  killWorker,
+  startWorker,
 } from "./api/taskflow";
 
 export default function App() {
@@ -48,6 +52,19 @@ export default function App() {
     lastRefreshedAt,
     setLastRefreshedAt,
   ] = useState(null);
+
+  const [workers, setWorkers] =
+    useState([]);
+
+  const [
+    workersLoading,
+    setWorkersLoading,
+  ] = useState(true);
+
+  const [
+    workerHealthError,
+    setWorkerHealthError,
+  ] = useState("");
 
   /*
    * Fetch all workloads.
@@ -113,6 +130,59 @@ export default function App() {
         setLoading(false);
       }
     }, []);
+
+  const loadWorkers =
+    useCallback(async () => {
+      try {
+        const data =
+          await getWorkers();
+
+        setWorkers(
+          (current) => {
+            const currentJson =
+              JSON.stringify(
+                current,
+              );
+
+            const nextJson =
+              JSON.stringify(
+                data,
+              );
+
+            if (
+              currentJson ===
+              nextJson
+            ) {
+              return current;
+            }
+
+            return data;
+          },
+        );
+
+        setWorkerHealthError("");
+      } catch (err) {
+        setWorkerHealthError(
+          err.message,
+        );
+      } finally {
+        setWorkersLoading(false);
+      }
+    }, []);
+
+
+  useEffect(() => {
+    loadWorkers();
+
+    const interval =
+      setInterval(
+        loadWorkers,
+        2000,
+      );
+
+    return () =>
+      clearInterval(interval);
+  }, [loadWorkers]);
 
   /*
    * Fetch jobs for one workload.
@@ -378,6 +448,30 @@ export default function App() {
     );
   }
 
+  async function handleKillWorker(
+    nodeId,
+  ) {
+    await killWorker(nodeId);
+
+    /*
+     * The Redis health record intentionally remains
+     * ONLINE until its TTL expires.
+     */
+    await loadWorkers();
+  }
+
+  async function handleStartWorker(
+    nodeId,
+  ) {
+    await startWorker(nodeId);
+
+    /*
+     * The worker sends its first heartbeat immediately,
+     * so the next poll should normally show ONLINE.
+     */
+    await loadWorkers();
+  }
+
   return (
     <div className="min-h-screen bg-[#05070b] text-zinc-100">
       <Header
@@ -457,10 +551,19 @@ export default function App() {
           </div>
         ) : (
           <div className="space-y-3">
+
             <OverviewMetrics
               workloads={
                 workloads
               }
+            />
+
+            <WorkerClusterPanel
+              workers={workers}
+              loading={workersLoading}
+              error={workerHealthError}
+              onKill={handleKillWorker}
+              onStart={handleStartWorker}
             />
 
             <WorkloadComposer
@@ -528,7 +631,7 @@ export default function App() {
       <footer className="mx-auto max-w-[1500px] px-3 pb-4 pt-1 sm:px-5">
         <div className="border-t border-zinc-900 pt-3 font-mono text-[8px] uppercase tracking-wider text-zinc-700">
           TaskFlow · Spring Boot ·
-          MongoDB · Kafka · Go · React
+          MongoDB · Kafka · Redis · Go · React
         </div>
       </footer>
     </div>

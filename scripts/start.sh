@@ -67,17 +67,22 @@ wait_for_url() {
 # Docker infrastructure
 # --------------------------------------------------
 
-echo "[1/5] Starting MongoDB and Kafka..."
+echo "[1/5] Starting MongoDB, Kafka, and Redis..."
 
 cd "$ROOT_DIR"
 
-docker compose up -d mongodb kafka
+docker compose up -d \
+    mongodb \
+    kafka \
+    redis
 
 echo ""
 echo "Docker infrastructure:"
-docker compose ps mongodb kafka
 
-echo ""
+docker compose ps \
+    mongodb \
+    kafka \
+    redis
 
 
 # --------------------------------------------------
@@ -208,6 +213,9 @@ echo "  localhost:27017"
 echo ""
 echo "Kafka:"
 echo "  localhost:9092"
+echo ""
+echo "Redis:"
+echo "  localhost:6379"
 echo ""
 echo "Worker containers:"
 echo "  taskflow-worker-a"

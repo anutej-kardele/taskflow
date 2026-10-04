@@ -77,8 +77,11 @@ services:
 
       TASKFLOW_CONTROL_PLANE_URL: http://host.docker.internal:8080
 
+      TASKFLOW_REDIS_ADDR: redis:6379
+
     depends_on:
       - kafka
+      - redis
 
   worker-b:
     build:
@@ -96,8 +99,11 @@ services:
 
       TASKFLOW_CONTROL_PLANE_URL: http://host.docker.internal:8080
 
+      TASKFLOW_REDIS_ADDR: redis:6379
+
     depends_on:
       - kafka
+      - redis
 
   worker-c:
     build:
@@ -114,9 +120,33 @@ services:
       TASKFLOW_KAFKA_GROUP_ID: taskflow-workers
 
       TASKFLOW_CONTROL_PLANE_URL: http://host.docker.internal:8080
+      TASKFLOW_REDIS_ADDR: redis:6379
 
     depends_on:
       - kafka
+      - redis
+
+  redis:
+    image: redis:7.4-alpine
+    container_name: taskflow-redis
+
+    ports:
+      - "127.0.0.1:6379:6379"
+
+    # Worker-health data is intentionally ephemeral.
+    # We do not persist Redis state across restarts.
+    command:
+      - redis-server
+      - --save
+      - ""
+      - --appendonly
+      - "no"
+
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 5s
+      timeout: 3s
+      retries: 5
 
 volumes:
   mongodb_data:
