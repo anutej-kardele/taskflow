@@ -18,6 +18,7 @@ import com.anutej.taskflow.controlplane.dto.ClaimJobRequest;
 import com.anutej.taskflow.controlplane.dto.RenewLeaseRequest;
 import com.anutej.taskflow.controlplane.dto.UpdateJobStatusRequest;
 import com.anutej.taskflow.controlplane.dto.ReportJobFailureRequest;
+import com.anutej.taskflow.controlplane.dto.JobSummaryResponse;
 
 import jakarta.validation.Valid;
 
@@ -122,5 +123,12 @@ public class JobController {
             case CONFLICT ->
                 ResponseEntity.status(409).build();
         };
+    }
+
+    @GetMapping("/summary")
+    public ResponseEntity<JobSummaryResponse> getJobSummary() {
+
+        return ResponseEntity.ok(
+                jobService.getJobSummary());
     }
 }

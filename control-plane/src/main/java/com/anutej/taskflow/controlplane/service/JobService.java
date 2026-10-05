@@ -16,6 +16,8 @@ import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.data.mongodb.core.query.Update;
 
 import org.springframework.data.mongodb.core.FindAndModifyOptions;
+import com.anutej.taskflow.controlplane.dto.JobSummaryResponse;
+import com.mongodb.client.result.UpdateResult;
 
 import java.time.Instant;
 import java.util.List;
@@ -25,10 +27,15 @@ public class JobService {
 
     private final JobRepository jobRepository;
     private final MongoTemplate mongoTemplate;
+    private final SseEventService sseEventService;
 
-    public JobService(JobRepository jobRepository, MongoTemplate mongoTemplate) {
+    public JobService(JobRepository jobRepository, MongoTemplate mongoTemplate, SseEventService sseEventService) {
+
         this.jobRepository = jobRepository;
+
         this.mongoTemplate = mongoTemplate;
+
+        this.sseEventService = sseEventService;
     }
 
     public Optional<Job> getJobById(String id) {
@@ -82,9 +89,9 @@ public class JobService {
 
         updateWorkloadStatus(updatedJob.getWorkloadId());
 
-        return new JobStatusUpdateResult(
-                JobStatusUpdateResult.Outcome.UPDATED,
-                updatedJob);
+        sseEventService.broadcastJobUpdated(updatedJob.getId(), updatedJob.getWorkloadId());
+
+        return new JobStatusUpdateResult(JobStatusUpdateResult.Outcome.UPDATED, updatedJob);
     }
 
     private void updateWorkloadStatus(String workloadId) {
@@ -139,10 +146,17 @@ public class JobService {
                             "status",
                             terminalStatus);
 
-            mongoTemplate.updateFirst(
+            UpdateResult result = mongoTemplate.updateFirst(
                     query,
                     update,
                     Workload.class);
+
+            if (result.getModifiedCount() > 0) {
+
+                sseEventService
+                        .broadcastWorkloadUpdated(
+                                workloadId);
+            }
 
             return;
         }
@@ -165,10 +179,17 @@ public class JobService {
                             "status",
                             WorkloadStatus.RUNNING);
 
-            mongoTemplate.updateFirst(
+            UpdateResult result = mongoTemplate.updateFirst(
                     query,
                     update,
                     Workload.class);
+
+            if (result.getModifiedCount() > 0) {
+
+                sseEventService
+                        .broadcastWorkloadUpdated(
+                                workloadId);
+            }
         }
     }
 
@@ -222,9 +243,9 @@ public class JobService {
 
         updateWorkloadStatus(claimedJob.getWorkloadId());
 
-        return new JobStatusUpdateResult(
-                JobStatusUpdateResult.Outcome.UPDATED,
-                claimedJob);
+        sseEventService.broadcastJobUpdated(claimedJob.getId(), claimedJob.getWorkloadId());
+
+        return new JobStatusUpdateResult(JobStatusUpdateResult.Outcome.UPDATED, claimedJob);
     }
 
     public JobStatusUpdateResult renewLease(
@@ -394,13 +415,25 @@ public class JobService {
          * permanently exhausted its retry budget.
          */
         if (updatedJob.getStatus() == JobStatus.FAILED) {
-            updateWorkloadStatus(
-                    updatedJob.getWorkloadId());
+            updateWorkloadStatus(updatedJob.getWorkloadId());
+            sseEventService.broadcastJobUpdated(updatedJob.getId(), updatedJob.getWorkloadId());
         }
 
         return new JobStatusUpdateResult(
                 JobStatusUpdateResult.Outcome.UPDATED,
                 updatedJob);
+    }
+
+    public JobSummaryResponse getJobSummary() {
+
+        long totalJobs = jobRepository.count();
+
+        long completedJobs = jobRepository.countByStatus(
+                JobStatus.COMPLETED);
+
+        return new JobSummaryResponse(
+                totalJobs,
+                completedJobs);
     }
 
 }

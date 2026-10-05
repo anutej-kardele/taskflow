@@ -6,6 +6,7 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 
@@ -19,7 +20,10 @@ import WorkloadDetails from "./components/WorkloadDetails";
 import WorkloadList from "./components/WorkloadList";
 import WorkerClusterPanel from "./components/WorkerClusterPanel";
 
+import useTaskFlowEvents from "./hooks/useTaskFlowEvents";
+
 import {
+  getJobSummary,
   getWorkers,
   getWorkloadJobs,
   getWorkloads,
@@ -66,11 +70,43 @@ export default function App() {
     setWorkerHealthError,
   ] = useState("");
 
+  const [
+    jobSummary,
+    setJobSummary,
+  ] = useState({
+    totalJobs: 0,
+    completedJobs: 0,
+  });
+
+  const jobSummaryEventTimer =
+    useRef(null);
+
+  const loadJobSummary =
+    useCallback(async () => {
+      try {
+        const data =
+          await getJobSummary();
+
+        setJobSummary(data);
+      } catch (err) {
+        setError(err.message);
+      }
+    }, []);
+
+  /*
+   * SSE events can arrive in bursts.
+   *
+   * These timers allow us to combine several
+   * notifications into one REST refresh.
+   */
+  const workloadEventTimer =
+    useRef(null);
+
+  const jobEventTimer =
+    useRef(null);
+
   /*
    * Fetch all workloads.
-   *
-   * The workload list continues polling every 2 seconds
-   * so background workload state changes stay visible.
    */
   const loadWorkloads =
     useCallback(async () => {
@@ -90,10 +126,6 @@ export default function App() {
             ),
         );
 
-        /*
-         * Avoid replacing React state when nothing
-         * actually changed.
-         */
         setWorkloads(
           (current) => {
             const currentJson =
@@ -131,6 +163,147 @@ export default function App() {
       }
     }, []);
 
+
+
+  /*
+   * Fetch jobs belonging to one workload.
+   */
+  const loadJobs =
+    useCallback(
+      async (workloadId) => {
+        if (!workloadId) {
+          return;
+        }
+
+        try {
+          const data =
+            await getWorkloadJobs(
+              workloadId,
+            );
+
+          setJobs(
+            (current) => {
+              const currentJson =
+                JSON.stringify(
+                  current,
+                );
+
+              const nextJson =
+                JSON.stringify(
+                  data,
+                );
+
+              if (
+                currentJson ===
+                nextJson
+              ) {
+                return current;
+              }
+
+              return data;
+            },
+          );
+        } catch (err) {
+          setError(err.message);
+        }
+      },
+      [],
+    );
+
+  /*
+   * Find the currently selected workload from
+   * the latest workload state.
+   */
+  const selectedWorkload =
+    useMemo(
+      () =>
+        workloads.find(
+          (workload) =>
+            workload.id ===
+            selectedWorkloadId,
+        ) ?? null,
+      [
+        workloads,
+        selectedWorkloadId,
+      ],
+    );
+
+  const selectedWorkloadStatus =
+    selectedWorkload?.status ??
+    null;
+
+
+  /*
+   * SSE: workload changed.
+   *
+   * Several job transitions can cause workload
+   * notifications close together, so wait briefly
+   * and perform one authoritative REST fetch.
+   */
+  const handleWorkloadUpdated =
+    useCallback(() => {
+      clearTimeout(
+        workloadEventTimer.current,
+      );
+
+      workloadEventTimer.current =
+        setTimeout(
+          loadWorkloads,
+          100,
+        );
+    }, [loadWorkloads]);
+
+  /*
+   * SSE: job changed.
+   *
+   * Only refresh jobs when the event belongs to
+   * the workload currently open in the dashboard.
+   */
+  const handleJobUpdated =
+
+    useCallback(
+      (event) => {
+        clearTimeout(
+          jobSummaryEventTimer.current,
+        );
+
+        jobSummaryEventTimer.current =
+          setTimeout(
+            loadJobSummary,
+            100,
+          );
+
+        if (
+          !selectedWorkloadId ||
+          event.workloadId !==
+          selectedWorkloadId
+        ) {
+          return;
+        }
+
+        clearTimeout(
+          jobEventTimer.current,
+        );
+
+        jobEventTimer.current =
+          setTimeout(
+            () =>
+              loadJobs(
+                event.workloadId,
+              ),
+            100,
+          );
+      },
+      [
+        selectedWorkloadId,
+        loadJobs,
+        loadJobSummary,
+      ],
+    );
+
+  /*
+ * Fetch worker health.
+ */
   const loadWorkers =
     useCallback(async () => {
       try {
@@ -171,129 +344,101 @@ export default function App() {
     }, []);
 
 
-  useEffect(() => {
-    loadWorkers();
+  const handleWorkersUpdated =
+    useCallback(() => {
+      loadWorkers();
+    }, [loadWorkers]);
 
-    const interval =
+  const handleSseConnected =
+    useCallback(() => {
+      loadWorkloads();
+      loadWorkers();
+      loadJobSummary();
+
+      if (selectedWorkloadId) {
+        loadJobs(
+          selectedWorkloadId,
+        );
+      }
+    }, [
+      loadWorkloads,
+      loadWorkers,
+      loadJobSummary,
+      loadJobs,
+      selectedWorkloadId,
+    ]);
+
+  /*
+* Establish one persistent SSE connection.
+*
+* The hook receives the callbacks only after all
+* callback dependencies above have been created.
+*/
+  const sseStatus =
+    useTaskFlowEvents({
+      onConnected:
+        handleSseConnected,
+
+      onWorkloadUpdated:
+        handleWorkloadUpdated,
+
+      onJobUpdated:
+        handleJobUpdated,
+
+      onWorkersUpdated:
+        handleWorkersUpdated,
+    });
+
+
+  useEffect(() => {
+    const initialLoad =
+      setTimeout(
+        loadWorkers,
+        0,
+      );
+
+    const reconciliation =
       setInterval(
         loadWorkers,
-        2000,
+        30000,
       );
 
-    return () =>
-      clearInterval(interval);
+    return () => {
+      clearTimeout(
+        initialLoad,
+      );
+
+      clearInterval(
+        reconciliation,
+      );
+    };
   }, [loadWorkers]);
 
-  /*
-   * Fetch jobs for one workload.
-   *
-   * Do NOT clear jobs here.
-   *
-   * Clearing jobs on every poll was what caused the
-   * visible refresh/flicker while reading job history.
-   */
-  const loadJobs =
-    useCallback(
-      async (workloadId) => {
-        if (!workloadId) {
-          return;
-        }
 
-        try {
-          const data =
-            await getWorkloadJobs(
-              workloadId,
-            );
-
-          /*
-           * Only update state when the returned job data
-           * actually changed.
-           */
-          setJobs(
-            (current) => {
-              const currentJson =
-                JSON.stringify(
-                  current,
-                );
-
-              const nextJson =
-                JSON.stringify(
-                  data,
-                );
-
-              if (
-                currentJson ===
-                nextJson
-              ) {
-                return current;
-              }
-
-              return data;
-            },
-          );
-        } catch (err) {
-          setError(err.message);
-        }
-      },
-      [],
-    );
-
-  /*
-   * Poll the overall workload list.
-   */
   useEffect(() => {
-    loadWorkloads();
-
-    const interval =
-      setInterval(
+    const initialLoad =
+      setTimeout(
         loadWorkloads,
-        2000,
+        0,
       );
 
-    return () =>
-      clearInterval(interval);
+    const reconciliation =
+      setInterval(
+        loadWorkloads,
+        30000,
+      );
+
+    return () => {
+      clearTimeout(
+        initialLoad,
+      );
+
+      clearInterval(
+        reconciliation,
+      );
+    };
   }, [loadWorkloads]);
 
-  /*
-   * Find the currently selected workload using the
-   * latest workload list.
-   */
-  const selectedWorkload =
-    useMemo(
-      () =>
-        workloads.find(
-          (workload) =>
-            workload.id ===
-            selectedWorkloadId,
-        ) ?? null,
-      [
-        workloads,
-        selectedWorkloadId,
-      ],
-    );
-
-  const selectedWorkloadStatus =
-    selectedWorkload?.status ??
-    null;
-
-  /*
-   * A workload is considered live while its state
-   * may still change.
-   */
-  const selectedWorkloadIsLive =
-    selectedWorkloadStatus ===
-    "CREATED" ||
-    selectedWorkloadStatus ===
-    "RUNNING";
-
-  /*
-   * When the user selects a DIFFERENT workload:
-   *
-   * 1. Clear the previous workload's jobs once.
-   * 2. Fetch jobs for the new workload.
-   *
-   * We do NOT clear jobs during polling.
-   */
   useEffect(() => {
     if (!selectedWorkloadId) {
       setJobs([]);
@@ -310,61 +455,16 @@ export default function App() {
     loadJobs,
   ]);
 
-  /*
-   * Poll job details only while the selected
-   * workload is still live.
-   *
-   * CREATED / RUNNING:
-   *     fetch every 2 seconds
-   *
-   * COMPLETED / FAILED:
-   *     stop continuous polling
-   */
-  useEffect(() => {
-    if (
-      !selectedWorkloadId ||
-      !selectedWorkloadIsLive
-    ) {
-      return undefined;
-    }
-
-    const interval =
-      setInterval(
-        () =>
-          loadJobs(
-            selectedWorkloadId,
-          ),
-        2000,
-      );
-
-    return () =>
-      clearInterval(interval);
-  }, [
-    selectedWorkloadId,
-    selectedWorkloadIsLive,
-    loadJobs,
-  ]);
 
   /*
-   * FINAL SYNCHRONIZATION
+   * Final synchronization.
    *
-   * The workload list and job list are separate API
-   * requests.
+   * Workload state and job state are retrieved by
+   * separate requests.
    *
-   * It is possible for the workload polling request to
-   * observe COMPLETED before the job polling request has
-   * fetched the final COMPLETED job.
-   *
-   * Example of the old bug:
-   *
-   * Workload = COMPLETED
-   * Progress = 90%
-   * Running  = 1
-   * Completed = 9
-   *
-   * When the workload enters a terminal state, perform
-   * one final job fetch before leaving the historical
-   * detail view static.
+   * When the workload becomes terminal, perform one
+   * final job fetch so the details view ends with the
+   * authoritative final job state.
    */
   useEffect(() => {
     if (
@@ -393,6 +493,56 @@ export default function App() {
     loadJobs,
   ]);
 
+
+  useEffect(() => {
+    const initialLoad =
+      setTimeout(
+        () => {
+          loadWorkloads();
+          loadJobSummary();
+        },
+        0,
+      );
+
+    const reconciliation =
+      setInterval(
+        () => {
+          loadWorkloads();
+          loadJobSummary();
+        },
+        30000,
+      );
+
+    return () => {
+      clearTimeout(
+        initialLoad,
+      );
+
+      clearInterval(
+        reconciliation,
+      );
+    };
+  }, [
+    loadWorkloads,
+    loadJobSummary,
+  ]);
+
+  /*
+   * Clear pending SSE debounce timers when App
+   * unmounts.
+   */
+  useEffect(() => {
+    return () => {
+      clearTimeout(
+        workloadEventTimer.current,
+      );
+
+      clearTimeout(
+        jobEventTimer.current,
+      );
+    };
+  }, []);
+
   const lastRefreshedLabel =
     lastRefreshedAt
       ? lastRefreshedAt.toLocaleTimeString(
@@ -406,8 +556,8 @@ export default function App() {
       : "—";
 
   /*
-   * Called after the workload composer submits one or
-   * more workloads.
+   * Called after the workload composer creates
+   * one or more workloads.
    */
   async function handleCreated(
     createdWorkloads,
@@ -425,17 +575,7 @@ export default function App() {
   }
 
   /*
-   * Mobile accordion behavior:
-   *
-   * closed + tap
-   *     -> open
-   *
-   * open + tap
-   *     -> close
-   *
-   * another workload + tap
-   *     -> previous closes
-   *     -> new workload opens
+   * Mobile workload accordion.
    */
   function handleMobileToggle(
     workloadId,
@@ -448,14 +588,19 @@ export default function App() {
     );
   }
 
+  /*
+   * Development worker failure controls.
+   */
   async function handleKillWorker(
     nodeId,
   ) {
-    await killWorker(nodeId);
+    await killWorker(
+      nodeId,
+    );
 
     /*
-     * The Redis health record intentionally remains
-     * ONLINE until its TTL expires.
+     * Redis intentionally continues reporting the
+     * worker ONLINE until its heartbeat TTL expires.
      */
     await loadWorkers();
   }
@@ -463,11 +608,12 @@ export default function App() {
   async function handleStartWorker(
     nodeId,
   ) {
-    await startWorker(nodeId);
+    await startWorker(
+      nodeId,
+    );
 
     /*
-     * The worker sends its first heartbeat immediately,
-     * so the next poll should normally show ONLINE.
+     * A restarted worker sends an immediate heartbeat.
      */
     await loadWorkers();
   }
@@ -481,7 +627,6 @@ export default function App() {
       <main className="mx-auto max-w-[1500px] px-3 py-3 sm:px-5">
         {/*
           Mobile notice.
-          Hidden automatically on desktop.
         */}
         <div className="mb-3 flex items-center gap-3 rounded-lg border border-blue-500/20 bg-blue-500/[0.06] px-3 py-2.5 lg:hidden">
           <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-blue-500/20 bg-blue-500/10 text-blue-400">
@@ -525,11 +670,23 @@ export default function App() {
             </div>
 
             <div className="hidden items-center gap-1.5 pb-0.5 font-mono text-[8px] uppercase tracking-wider text-zinc-700 md:flex">
-              REST
+              <span
+                className={
+                  sseStatus === "CONNECTED"
+                    ? "text-emerald-400"
+                    : "text-amber-400"
+                }
+              >
+                {sseStatus === "CONNECTED"
+                  ? "● LIVE"
+                  : "○ LIVE"}
+              </span>
 
               <span className="h-1 w-1 rounded-full bg-zinc-700" />
 
-              2 sec
+              {sseStatus === "CONNECTED"
+                ? "SSE connected"
+                : "SSE reconnecting"}
 
               <span className="h-1 w-1 rounded-full bg-zinc-700" />
 
@@ -537,6 +694,7 @@ export default function App() {
               {lastRefreshedLabel}
             </div>
           </div>
+
         </section>
 
         {error && (
@@ -551,19 +709,25 @@ export default function App() {
           </div>
         ) : (
           <div className="space-y-3">
-
             <OverviewMetrics
-              workloads={
-                workloads
-              }
+              workloads={workloads}
+              jobSummary={jobSummary}
             />
 
             <WorkerClusterPanel
               workers={workers}
-              loading={workersLoading}
-              error={workerHealthError}
-              onKill={handleKillWorker}
-              onStart={handleStartWorker}
+              loading={
+                workersLoading
+              }
+              error={
+                workerHealthError
+              }
+              onKill={
+                handleKillWorker
+              }
+              onStart={
+                handleStartWorker
+              }
             />
 
             <WorkloadComposer

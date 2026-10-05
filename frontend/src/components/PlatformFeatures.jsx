@@ -4,16 +4,10 @@ import {
     LockKeyhole,
     Radio,
     Server,
+    Container
 } from "lucide-react";
 
 const features = [
-    {
-        title: "Live Events",
-        description:
-            "Stream workload, job and worker transitions without REST polling.",
-        phase: "Server-Sent Events",
-        icon: Radio,
-    },
     {
         title: "Observability",
         description:
@@ -27,6 +21,13 @@ const features = [
             "Exercise controlled worker, infrastructure and delivery failures.",
         phase: "Failure testing",
         icon: Boxes,
+    },
+    {
+        title: "Docker",
+        description:
+            "Dockrize the whole project to work completely on D",
+        phase: "Containerization",
+        icon: Container,
     },
     {
         title: "Kubernetes",

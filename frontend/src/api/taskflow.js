@@ -90,3 +90,7 @@ export function startWorker(
         },
     );
 }
+
+export function getJobSummary() {
+    return request("/jobs/summary");
+}

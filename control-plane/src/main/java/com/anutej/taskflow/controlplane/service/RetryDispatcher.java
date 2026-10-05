@@ -22,15 +22,21 @@ public class RetryDispatcher {
     private final JobRepository jobRepository;
     private final MongoTemplate mongoTemplate;
     private final JobPublisher jobPublisher;
+    private final SseEventService sseEventService;
 
     public RetryDispatcher(
             JobRepository jobRepository,
             MongoTemplate mongoTemplate,
-            JobPublisher jobPublisher) {
+            JobPublisher jobPublisher,
+            SseEventService sseEventService) {
 
         this.jobRepository = jobRepository;
+
         this.mongoTemplate = mongoTemplate;
+
         this.jobPublisher = jobPublisher;
+
+        this.sseEventService = sseEventService;
     }
 
     @Scheduled(fixedDelay = 500)
@@ -91,6 +97,8 @@ public class RetryDispatcher {
         }
 
         jobPublisher.publish(requeuedJob);
+
+        sseEventService.broadcastJobUpdated(requeuedJob.getId(), requeuedJob.getWorkloadId());
 
         System.out.printf(
                 "Retrying job %s: attempt %d/%d%n",

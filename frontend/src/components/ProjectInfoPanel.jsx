@@ -145,7 +145,7 @@ export default function ProjectInfoPanel() {
 
                         <p>
                             • Live dashboard through
-                            REST polling
+                            SSE event
                         </p>
                     </div>
                 </div>

@@ -17,4 +17,6 @@ public interface JobRepository extends MongoRepository<Job, String> {
     List<Job> findByStatusAndNextRetryAtLessThanEqual(
             JobStatus status,
             Instant nextRetryAt);
+
+    long countByStatus(JobStatus status);
 }

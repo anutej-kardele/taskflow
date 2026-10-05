@@ -9,46 +9,30 @@ import MetricCard from "./MetricCard";
 
 export default function OverviewMetrics({
     workloads,
+    jobSummary,
 }) {
     const totalWorkloads =
         workloads.length;
 
     const totalJobs =
-        workloads.reduce(
-            (sum, workload) =>
-                sum +
-                (workload.jobCount ?? 0),
-            0,
-        );
+        jobSummary?.totalJobs ?? 0;
+
+    const completedJobs =
+        jobSummary?.completedJobs ?? 0;
 
     const activeWorkloads =
         workloads.filter(
             (workload) =>
-                workload.status === "RUNNING"
-        ).length;
-
-    const terminal =
-        workloads.filter(
-            (workload) =>
                 workload.status ===
-                "COMPLETED" ||
-                workload.status ===
-                "FAILED",
-        );
-
-    const completed =
-        terminal.filter(
-            (workload) =>
-                workload.status ===
-                "COMPLETED",
+                "RUNNING",
         ).length;
 
     const completionRate =
-        terminal.length === 0
+        totalJobs === 0
             ? 0
             : Math.round(
-                (completed /
-                    terminal.length) *
+                (completedJobs /
+                    totalJobs) *
                 100,
             );
 
@@ -76,9 +60,9 @@ export default function OverviewMetrics({
             />
 
             <MetricCard
-                label="Completion"
+                label="Job Completion"
                 value={`${completionRate}%`}
-                description="Terminal workloads completed"
+                description="Jobs successfully completed"
                 icon={CheckCircle2}
             />
         </div>
