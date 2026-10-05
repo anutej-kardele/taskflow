@@ -115,7 +115,7 @@ public class SseEventService {
      * This is an SSE connection heartbeat.
      * It is unrelated to the Redis worker heartbeat.
      */
-    @Scheduled(fixedRate = 5000)
+    @Scheduled(fixedRate = 10000)
     public void sendHeartbeat() {
 
         if (emitters.isEmpty()) {

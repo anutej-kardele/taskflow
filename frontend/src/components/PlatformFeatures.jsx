@@ -23,9 +23,9 @@ const features = [
         icon: Boxes,
     },
     {
-        title: "Docker",
+        title: "Full Containerization",
         description:
-            "Dockrize the whole project to work completely on D",
+            "Run the control plane, frontend and infrastructure as a complete Docker Compose stack.",
         phase: "Containerization",
         icon: Container,
     },

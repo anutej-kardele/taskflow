@@ -416,8 +416,9 @@ public class JobService {
          */
         if (updatedJob.getStatus() == JobStatus.FAILED) {
             updateWorkloadStatus(updatedJob.getWorkloadId());
-            sseEventService.broadcastJobUpdated(updatedJob.getId(), updatedJob.getWorkloadId());
         }
+
+        sseEventService.broadcastJobUpdated(updatedJob.getId(), updatedJob.getWorkloadId());
 
         return new JobStatusUpdateResult(
                 JobStatusUpdateResult.Outcome.UPDATED,
