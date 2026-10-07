@@ -32,6 +32,8 @@ public class Job {
 
     private Instant startedAt;
 
+    private Instant completedAt;
+
     private Instant leaseUntil;
 
     private Map<String, Object> payload;
@@ -161,5 +163,14 @@ public class Job {
 
     public void setNextRetryAt(Instant nextRetryAt) {
         this.nextRetryAt = nextRetryAt;
+    }
+
+    public Instant getCompletedAt() {
+        return completedAt;
+    }
+
+    public void setCompletedAt(
+            Instant completedAt) {
+        this.completedAt = completedAt;
     }
 }

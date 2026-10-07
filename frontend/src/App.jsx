@@ -105,6 +105,12 @@ export default function App() {
   const jobEventTimer =
     useRef(null);
 
+  const selectedWorkloadIdRef =
+    useRef(null);
+
+  const jobsRequestSequence =
+    useRef(0);
+
   /*
    * Fetch all workloads.
    */
@@ -171,15 +177,35 @@ export default function App() {
   const loadJobs =
     useCallback(
       async (workloadId) => {
-        if (!workloadId) {
+        if (
+          !workloadId ||
+          selectedWorkloadIdRef.current !==
+          workloadId
+        ) {
           return;
         }
+
+        const requestSequence =
+          ++jobsRequestSequence.current;
 
         try {
           const data =
             await getWorkloadJobs(
               workloadId,
             );
+
+          /*
+           * Ignore an older response if a newer
+           * request has already started.
+           */
+          if (
+            requestSequence !==
+            jobsRequestSequence.current ||
+            selectedWorkloadIdRef.current !==
+            workloadId
+          ) {
+            return;
+          }
 
           setJobs(
             (current) => {
@@ -204,7 +230,22 @@ export default function App() {
             },
           );
         } catch (err) {
-          setError(err.message);
+          /*
+           * Do not show errors belonging to an
+           * old workload request.
+           */
+          if (
+            requestSequence !==
+            jobsRequestSequence.current ||
+            selectedWorkloadIdRef.current !==
+            workloadId
+          ) {
+            return;
+          }
+
+          setError(
+            err.message,
+          );
         }
       },
       [],
@@ -224,6 +265,22 @@ export default function App() {
         ) ?? null,
       [
         workloads,
+        selectedWorkloadId,
+      ],
+    );
+
+  const selectedJobs =
+    useMemo(
+      () =>
+        selectedWorkloadId
+          ? jobs.filter(
+            (job) =>
+              job.workloadId ===
+              selectedWorkloadId,
+          )
+          : [],
+      [
+        jobs,
         selectedWorkloadId,
       ],
     );
@@ -440,6 +497,16 @@ export default function App() {
   }, [loadWorkloads]);
 
   useEffect(() => {
+    /*
+     * Immediately invalidate requests belonging
+     * to the previously selected workload.
+     */
+    selectedWorkloadIdRef.current =
+      selectedWorkloadId;
+
+    jobsRequestSequence.current +=
+      1;
+
     if (!selectedWorkloadId) {
       setJobs([]);
       return;
@@ -747,7 +814,7 @@ export default function App() {
                 selectedId={
                   selectedWorkloadId
                 }
-                jobs={jobs}
+                jobs={selectedJobs}
                 onToggle={
                   handleMobileToggle
                 }
@@ -780,7 +847,7 @@ export default function App() {
                   workload={
                     selectedWorkload
                   }
-                  jobs={jobs}
+                  jobs={selectedJobs}
                 />
               ) : (
                 <ProjectInfoPanel />

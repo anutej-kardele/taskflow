@@ -209,10 +209,12 @@ func runWorker(
 
 	reader := kafka.NewReader(
 		kafka.ReaderConfig{
-			Brokers:     kafkaBrokers,
-			Topic:       kafkaTopic,
-			GroupID:     kafkaGroupID,
-			StartOffset: kafka.FirstOffset,
+			Brokers:                kafkaBrokers,
+			Topic:                  kafkaTopic,
+			GroupID:                kafkaGroupID,
+			StartOffset:            kafka.FirstOffset,
+			WatchPartitionChanges:  true,
+			PartitionWatchInterval: 5 * time.Second,
 		},
 	)
 

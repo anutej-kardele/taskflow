@@ -47,7 +47,7 @@ function configurationForType(jobType) {
 
         case "HTTP":
             return {
-                url: "http://localhost:8080/api/workloads",
+                url: "http://host.docker.internal:8080/api/workloads",
                 timeoutMs: 5000,
             };
 
@@ -65,15 +65,130 @@ function configurationForType(jobType) {
     }
 }
 
-function createDraft(jobType = "SLEEP") {
+function createDraft(
+    jobType = "SLEEP",
+    jobCount = 10,
+    configuration = {},
+) {
     return {
         id: crypto.randomUUID(),
         jobType,
-        jobCount: 10,
-        configuration:
-            configurationForType(jobType),
+        jobCount,
+        configuration: {
+            ...configurationForType(
+                jobType,
+            ),
+            ...configuration,
+        },
     };
 }
+
+/*
+ * Phase 11 scenario presets.
+ *
+ * Presets only configure the composer.
+ * They do NOT immediately submit anything.
+ *
+ * Users can still edit every value after
+ * selecting a preset.
+ */
+const scenarioPresets = [
+    {
+        id: "basic",
+        label: "Basic Load",
+        description: "100 sleep jobs",
+        workloads: [
+            {
+                jobType: "SLEEP",
+                jobCount: 100,
+                configuration: {
+                    durationMs: 1000,
+                },
+            },
+        ],
+    },
+    {
+        id: "cpu",
+        label: "CPU Stress",
+        description: "500 CPU jobs",
+        workloads: [
+            {
+                jobType: "CPU",
+                jobCount: 500,
+                configuration: {
+                    iterations: 5000000,
+                },
+            },
+        ],
+    },
+    {
+        id: "api",
+        label: "API Stress",
+        description: "250 HTTP jobs",
+        workloads: [
+            {
+                jobType: "HTTP",
+                jobCount: 250,
+                configuration: {
+                    url: "http://host.docker.internal:8080/api/workloads",
+                    timeoutMs: 5000,
+                },
+            },
+        ],
+    },
+    {
+        id: "failure",
+        label: "Failure Test",
+        description: "500 unreliable jobs",
+        workloads: [
+            {
+                jobType: "UNRELIABLE",
+                jobCount: 500,
+                configuration: {
+                    failureRate: 0.5,
+                    durationMs: 500,
+                },
+            },
+        ],
+    },
+    {
+        id: "mixed",
+        label: "Mixed Load",
+        description: "10,000 mixed jobs",
+        workloads: [
+            {
+                jobType: "SLEEP",
+                jobCount: 1000,
+                configuration: {
+                    durationMs: 2000,
+                },
+            },
+            {
+                jobType: "CPU",
+                jobCount: 4000,
+                configuration: {
+                    iterations: 5000000,
+                },
+            },
+            {
+                jobType: "HTTP",
+                jobCount: 2000,
+                configuration: {
+                    url: "http://host.docker.internal:8080/api/workloads",
+                    timeoutMs: 5000,
+                },
+            },
+            {
+                jobType: "UNRELIABLE",
+                jobCount: 3000,
+                configuration: {
+                    failureRate: 0.3,
+                    durationMs: 500,
+                },
+            },
+        ],
+    },
+];
 
 const initialDrafts = [
     createDraft("SLEEP"),
@@ -118,12 +233,13 @@ function Field({
             );
         }
 
-        // Prevent floating-point values such as 0.30000000004.
         next = Number(
             next.toFixed(6),
         );
 
-        onChange(String(next));
+        onChange(
+            String(next),
+        );
     }
 
     if (type === "number") {
@@ -153,19 +269,19 @@ function Field({
                             )
                         }
                         className="
-              taskflow-number
-              h-8 w-full
-              rounded-md
-              border border-zinc-800
-              bg-[#05070b]
-              px-2.5 pr-[58px]
-              text-xs text-zinc-200
-              outline-none
-              transition
-              focus:border-blue-500/60
-              focus:ring-1
-              focus:ring-blue-500/20
-            "
+                            taskflow-number
+                            h-8 w-full
+                            rounded-md
+                            border border-zinc-800
+                            bg-[#05070b]
+                            px-2.5 pr-[58px]
+                            text-xs text-zinc-200
+                            outline-none
+                            transition
+                            focus:border-blue-500/60
+                            focus:ring-1
+                            focus:ring-blue-500/20
+                        "
                     />
 
                     <div className="absolute right-1 top-1/2 flex -translate-y-1/2 gap-0.5">
@@ -175,17 +291,19 @@ function Field({
                                 changeNumber(-1)
                             }
                             className="
-                flex h-6 w-6
-                items-center justify-center
-                rounded
-                text-zinc-600
-                transition
-                hover:bg-blue-500/10
-                hover:text-blue-400
-              "
+                                flex h-6 w-6
+                                items-center justify-center
+                                rounded
+                                text-zinc-600
+                                transition
+                                hover:bg-blue-500/10
+                                hover:text-blue-400
+                            "
                             aria-label={`Decrease ${label}`}
                         >
-                            <Minus size={10} />
+                            <Minus
+                                size={10}
+                            />
                         </button>
 
                         <button
@@ -194,17 +312,19 @@ function Field({
                                 changeNumber(1)
                             }
                             className="
-                flex h-6 w-6
-                items-center justify-center
-                rounded
-                text-zinc-600
-                transition
-                hover:bg-blue-500/10
-                hover:text-blue-400
-              "
+                                flex h-6 w-6
+                                items-center justify-center
+                                rounded
+                                text-zinc-600
+                                transition
+                                hover:bg-blue-500/10
+                                hover:text-blue-400
+                            "
                             aria-label={`Increase ${label}`}
                         >
-                            <Plus size={10} />
+                            <Plus
+                                size={10}
+                            />
                         </button>
                     </div>
                 </div>
@@ -234,18 +354,18 @@ function Field({
                     )
                 }
                 className="
-          h-8 w-full
-          rounded-md
-          border border-zinc-800
-          bg-[#05070b]
-          px-2.5
-          text-xs text-zinc-200
-          outline-none
-          transition
-          focus:border-blue-500/60
-          focus:ring-1
-          focus:ring-blue-500/20
-        "
+                    h-8 w-full
+                    rounded-md
+                    border border-zinc-800
+                    bg-[#05070b]
+                    px-2.5
+                    text-xs text-zinc-200
+                    outline-none
+                    transition
+                    focus:border-blue-500/60
+                    focus:ring-1
+                    focus:ring-blue-500/20
+                "
             />
         </label>
     );
@@ -258,14 +378,19 @@ function ConfigurationFields({
     const config =
         workload.configuration;
 
-    if (workload.jobType === "SLEEP") {
+    if (
+        workload.jobType ===
+        "SLEEP"
+    ) {
         return (
             <Field
                 label="Duration ms"
                 type="number"
                 min="1"
                 step="100"
-                value={config.durationMs}
+                value={
+                    config.durationMs
+                }
                 onChange={(value) =>
                     updateConfiguration({
                         durationMs:
@@ -276,14 +401,19 @@ function ConfigurationFields({
         );
     }
 
-    if (workload.jobType === "CPU") {
+    if (
+        workload.jobType ===
+        "CPU"
+    ) {
         return (
             <Field
                 label="Iterations"
                 type="number"
                 min="1"
                 step="100000"
-                value={config.iterations}
+                value={
+                    config.iterations
+                }
                 onChange={(value) =>
                     updateConfiguration({
                         iterations:
@@ -294,7 +424,10 @@ function ConfigurationFields({
         );
     }
 
-    if (workload.jobType === "HTTP") {
+    if (
+        workload.jobType ===
+        "HTTP"
+    ) {
         return (
             <>
                 <Field
@@ -302,18 +435,24 @@ function ConfigurationFields({
                     type="number"
                     min="1"
                     step="500"
-                    value={config.timeoutMs}
+                    value={
+                        config.timeoutMs
+                    }
                     onChange={(value) =>
                         updateConfiguration({
                             timeoutMs:
-                                Number(value),
+                                Number(
+                                    value,
+                                ),
                         })
                     }
                 />
 
                 <Field
                     label="URL"
-                    value={config.url}
+                    value={
+                        config.url
+                    }
                     wide
                     onChange={(value) =>
                         updateConfiguration({
@@ -333,7 +472,9 @@ function ConfigurationFields({
                 min="0"
                 max="1"
                 step="0.05"
-                value={config.failureRate}
+                value={
+                    config.failureRate
+                }
                 onChange={(value) =>
                     updateConfiguration({
                         failureRate:
@@ -347,7 +488,9 @@ function ConfigurationFields({
                 type="number"
                 min="1"
                 step="100"
-                value={config.durationMs}
+                value={
+                    config.durationMs
+                }
                 onChange={(value) =>
                     updateConfiguration({
                         durationMs:
@@ -362,19 +505,48 @@ function ConfigurationFields({
 export default function WorkloadComposer({
     onCreated,
 }) {
-    const [drafts, setDrafts] =
-        useState(initialDrafts);
+    const [
+        drafts,
+        setDrafts,
+    ] = useState(
+        initialDrafts,
+    );
 
-    const [submitting, setSubmitting] =
-        useState(false);
+    const [
+        activePreset,
+        setActivePreset,
+    ] = useState(null);
 
-    const [error, setError] =
-        useState("");
+    const [
+        submitting,
+        setSubmitting,
+    ] = useState(false);
+
+    const [
+        error,
+        setError,
+    ] = useState("");
+
+    const totalJobs =
+        drafts.reduce(
+            (total, draft) =>
+                total +
+                (Number(
+                    draft.jobCount,
+                ) || 0),
+            0,
+        );
 
     function updateDraft(
         id,
         update,
     ) {
+        /*
+         * Once the user manually changes a
+         * preset, it becomes a custom scenario.
+         */
+        setActivePreset(null);
+
         setDrafts((current) =>
             current.map((draft) =>
                 draft.id === id
@@ -391,36 +563,85 @@ export default function WorkloadComposer({
         id,
         jobType,
     ) {
-        updateDraft(id, {
-            jobType,
-            configuration:
-                configurationForType(
-                    jobType,
-                ),
-        });
+        updateDraft(
+            id,
+            {
+                jobType,
+                configuration:
+                    configurationForType(
+                        jobType,
+                    ),
+            },
+        );
     }
 
     function addDraft() {
-        setDrafts((current) => [
-            ...current,
-            createDraft(),
-        ]);
+        setActivePreset(null);
+
+        setDrafts(
+            (current) => [
+                ...current,
+                createDraft(),
+            ],
+        );
     }
 
     function removeDraft(id) {
-        setDrafts((current) => {
-            if (current.length === 1) {
-                return current;
-            }
+        setActivePreset(null);
 
-            return current.filter(
-                (draft) =>
-                    draft.id !== id,
+        setDrafts(
+            (current) => {
+                if (
+                    current.length ===
+                    1
+                ) {
+                    return current;
+                }
+
+                return current.filter(
+                    (draft) =>
+                        draft.id !==
+                        id,
+                );
+            },
+        );
+    }
+
+    function applyPreset(
+        preset,
+    ) {
+        const nextDrafts =
+            preset.workloads.map(
+                (workload) =>
+                    createDraft(
+                        workload.jobType,
+                        workload.jobCount,
+                        workload.configuration,
+                    ),
             );
-        });
+
+        setDrafts(
+            nextDrafts,
+        );
+
+        setActivePreset(
+            preset.id,
+        );
+
+        setError("");
     }
 
     async function submitAll() {
+        if (
+            totalJobs <= 0
+        ) {
+            setError(
+                "Scenario must contain at least one job.",
+            );
+
+            return;
+        }
+
         setSubmitting(true);
         setError("");
 
@@ -457,19 +678,25 @@ export default function WorkloadComposer({
                         "rejected",
                 );
 
-            if (failed.length > 0) {
+            if (
+                failed.length > 0
+            ) {
                 setError(
                     `${failed.length} workload request(s) failed.`,
                 );
             }
 
-            if (successful.length > 0) {
+            if (
+                successful.length > 0
+            ) {
                 onCreated?.(
                     successful,
                 );
             }
         } catch (err) {
-            setError(err.message);
+            setError(
+                err.message,
+            );
         } finally {
             setSubmitting(false);
         }
@@ -477,7 +704,8 @@ export default function WorkloadComposer({
 
     return (
         <section className="rounded-xl border border-zinc-800 bg-[#0a0c10]">
-            <div className="flex items-center justify-between border-b border-zinc-800 px-3.5 py-2.5">
+
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-zinc-800 px-3.5 py-2.5">
                 <div>
                     <div className="flex items-center gap-2">
                         <p className="font-mono text-[8px] uppercase tracking-[0.2em] text-blue-400">
@@ -490,32 +718,90 @@ export default function WorkloadComposer({
                     </div>
 
                     <h2 className="mt-0.5 text-sm font-semibold text-white">
-                        Create workloads
+                        Build execution scenario
                     </h2>
                 </div>
 
-                <button
-                    type="button"
-                    onClick={addDraft}
-                    className="
-            flex h-7 items-center gap-1
-            rounded-md border
-            border-blue-500/25
-            bg-blue-500/10
-            px-2.5
-            text-[11px] text-blue-300
-            transition
-            hover:bg-blue-500/15
-          "
-                >
-                    <Plus size={12} />
-                    Add
-                </button>
+                <div className="flex flex-wrap items-center justify-end gap-1.5">
+                    <span className="mr-1 font-mono text-[7px] uppercase tracking-wider text-zinc-700">
+                        Presets
+                    </span>
+
+                    {scenarioPresets.map(
+                        (preset) => {
+                            const selected =
+                                activePreset ===
+                                preset.id;
+
+                            return (
+                                <button
+                                    key={preset.id}
+                                    type="button"
+                                    onClick={() =>
+                                        applyPreset(
+                                            preset,
+                                        )
+                                    }
+                                    aria-pressed={
+                                        selected
+                                    }
+                                    title={
+                                        preset.description
+                                    }
+                                    className={`
+                            h-7
+                            rounded-md
+                            border
+                            px-2.5
+                            text-[9px]
+                            transition
+                            ${selected
+                                            ? "border-blue-500/40 bg-blue-500/15 text-blue-300"
+                                            : "border-zinc-800 bg-[#07090d] text-zinc-500 hover:border-blue-500/25 hover:text-zinc-300"
+                                        }
+                        `}
+                                >
+                                    {preset.label}
+                                </button>
+                            );
+                        },
+                    )}
+
+                    <div className="mx-1 h-4 w-px bg-zinc-800" />
+
+                    <span className="font-mono text-[7px] uppercase tracking-wider text-zinc-700">
+                        {totalJobs.toLocaleString()} jobs
+                    </span>
+
+                    <button
+                        type="button"
+                        onClick={addDraft}
+                        className="
+                ml-1
+                flex h-7 items-center gap-1
+                rounded-md border
+                border-blue-500/25
+                bg-blue-500/10
+                px-2.5
+                text-[11px] text-blue-300
+                transition
+                hover:bg-blue-500/15
+            "
+                    >
+                        <Plus size={12} />
+                        Add
+                    </button>
+                </div>
             </div>
+
+
 
             <div className="grid gap-2.5 p-3 md:grid-cols-2 xl:grid-cols-4">
                 {drafts.map(
-                    (workload, index) => {
+                    (
+                        workload,
+                        index,
+                    ) => {
                         const selectedType =
                             jobTypes.find(
                                 (type) =>
@@ -524,32 +810,40 @@ export default function WorkloadComposer({
                             );
 
                         const TypeIcon =
-                            selectedType?.icon ??
+                            selectedType
+                                ?.icon ??
                             Moon;
 
                         return (
                             <div
-                                key={workload.id}
+                                key={
+                                    workload.id
+                                }
                                 className="
-                  flex flex-col
-                  rounded-lg
-                  border border-zinc-800
-                  bg-[#07090d]
-                  p-2.5
-                "
+                                    flex flex-col
+                                    rounded-lg
+                                    border border-zinc-800
+                                    bg-[#07090d]
+                                    p-2.5
+                                "
                             >
                                 <div className="mb-2 flex items-center justify-between">
                                     <div className="flex items-center gap-2">
                                         <div className="flex h-7 w-7 items-center justify-center rounded-md border border-blue-500/20 bg-blue-500/10 text-blue-400">
                                             <TypeIcon
-                                                size={12}
+                                                size={
+                                                    12
+                                                }
                                             />
                                         </div>
 
                                         <div>
                                             <p className="text-[11px] font-medium text-zinc-200">
                                                 Workload{" "}
-                                                {index + 1}
+                                                {
+                                                    index +
+                                                    1
+                                                }
                                             </p>
 
                                             <p className="font-mono text-[7px] uppercase tracking-wider text-zinc-600">
@@ -563,7 +857,8 @@ export default function WorkloadComposer({
                                     <button
                                         type="button"
                                         disabled={
-                                            drafts.length === 1
+                                            drafts.length ===
+                                            1
                                         }
                                         onClick={() =>
                                             removeDraft(
@@ -571,17 +866,19 @@ export default function WorkloadComposer({
                                             )
                                         }
                                         className="
-                      rounded-md p-1
-                      text-zinc-700
-                      transition
-                      hover:bg-red-500/10
-                      hover:text-red-400
-                      disabled:opacity-20
-                    "
+                                            rounded-md p-1
+                                            text-zinc-700
+                                            transition
+                                            hover:bg-red-500/10
+                                            hover:text-red-400
+                                            disabled:opacity-20
+                                        "
                                         aria-label={`Remove workload ${index + 1}`}
                                     >
                                         <Trash2
-                                            size={12}
+                                            size={
+                                                12
+                                            }
                                         />
                                     </button>
                                 </div>
@@ -601,24 +898,27 @@ export default function WorkloadComposer({
                                             ) =>
                                                 changeType(
                                                     workload.id,
-                                                    event.target
+                                                    event
+                                                        .target
                                                         .value,
                                                 )
                                             }
                                             className="
-                        h-8 w-full
-                        rounded-md
-                        border border-zinc-800
-                        bg-[#05070b]
-                        px-2.5
-                        text-xs
-                        text-zinc-200
-                        outline-none
-                        focus:border-blue-500/60
-                      "
+                                                h-8 w-full
+                                                rounded-md
+                                                border border-zinc-800
+                                                bg-[#05070b]
+                                                px-2.5
+                                                text-xs
+                                                text-zinc-200
+                                                outline-none
+                                                focus:border-blue-500/60
+                                            "
                                         >
                                             {jobTypes.map(
-                                                (type) => (
+                                                (
+                                                    type,
+                                                ) => (
                                                     <option
                                                         key={
                                                             type.value
@@ -691,35 +991,51 @@ export default function WorkloadComposer({
                 </div>
             )}
 
-            <div className="flex items-center justify-between border-t border-zinc-800 px-3.5 py-2">
-                <p className="font-mono text-[8px] uppercase tracking-wider text-zinc-700">
-                    Requests execute concurrently
-                </p>
+            <div className="flex items-center justify-between gap-3 border-t border-zinc-800 px-3.5 py-2">
+                <div className="flex items-center gap-2">
+                    <p className="font-mono text-[8px] uppercase tracking-wider text-zinc-700">
+                        Requests execute concurrently
+                    </p>
+
+                    <span className="h-1 w-1 rounded-full bg-zinc-800" />
+
+                    <p className="font-mono text-[8px] uppercase tracking-wider text-zinc-600">
+                        {totalJobs.toLocaleString()} jobs
+                    </p>
+                </div>
 
                 <button
                     type="button"
-                    onClick={submitAll}
-                    disabled={submitting}
+                    onClick={
+                        submitAll
+                    }
+                    disabled={
+                        submitting ||
+                        totalJobs <= 0
+                    }
                     className="
-            flex h-8 items-center gap-1.5
-            rounded-md
-            bg-blue-600
-            px-3.5
-            text-[11px] font-medium
-            text-white
-            transition
-            hover:bg-blue-500
-            disabled:cursor-not-allowed
-            disabled:opacity-50
-          "
+                        flex h-8 items-center gap-1.5
+                        rounded-md
+                        bg-blue-600
+                        px-3.5
+                        text-[11px] font-medium
+                        text-white
+                        transition
+                        hover:bg-blue-500
+                        disabled:cursor-not-allowed
+                        disabled:opacity-50
+                    "
                 >
-                    <Send size={12} />
+                    <Send
+                        size={12}
+                    />
 
                     {submitting
-                        ? "Submitting..."
-                        : drafts.length === 1
-                            ? "Run workload"
-                            : `Run ${drafts.length} workloads`}
+                        ? "Launching..."
+                        : drafts.length ===
+                            1
+                            ? `Run ${totalJobs.toLocaleString()} jobs`
+                            : `Run ${drafts.length} workloads · ${totalJobs.toLocaleString()} jobs`}
                 </button>
             </div>
         </section>

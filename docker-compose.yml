@@ -56,7 +56,7 @@ services:
 
       KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
 
-      KAFKA_NUM_PARTITIONS: 10
+      KAFKA_NUM_PARTITIONS: 18
 
     volumes:
       - kafka_data:/var/lib/kafka/data

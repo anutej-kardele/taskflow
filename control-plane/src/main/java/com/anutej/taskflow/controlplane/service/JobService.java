@@ -65,6 +65,7 @@ public class JobService {
         }
 
         update.set("status", JobStatus.COMPLETED)
+                .set("completedAt", now)
                 .set("leaseUntil", null)
                 .set("nextRetryAt", null);
 

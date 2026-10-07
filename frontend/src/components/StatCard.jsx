@@ -6,27 +6,29 @@ export default function StatCard({
     return (
         <div
             className={`
-        rounded-lg border p-4
+                flex items-center justify-between
+                rounded-md border
+                px-3 py-2
 
-        ${accent
+                ${accent
                     ? "border-blue-500/20 bg-blue-500/[0.06]"
                     : "border-zinc-800 bg-[#07090d]"
                 }
-      `}
+            `}
         >
-            <p className="font-mono text-[10px] uppercase tracking-wider text-zinc-600">
+            <p className="font-mono text-[8px] uppercase tracking-wider text-zinc-600">
                 {label}
             </p>
 
             <p
                 className={`
-          mt-2 text-2xl font-semibold
+                    text-base font-semibold
 
-          ${accent
+                    ${accent
                         ? "text-blue-300"
                         : "text-white"
                     }
-        `}
+                `}
             >
                 {value}
             </p>
