@@ -40,19 +40,19 @@ const features = [
 
 export default function PlatformFeatures() {
     return (
-        <section className="rounded-xl border border-zinc-800 bg-[#0a0c10]">
-            <div className="flex items-center justify-between border-b border-zinc-800 px-4 py-3">
+        <section className="rounded-xl border border-line bg-panel">
+            <div className="flex items-center justify-between border-b border-line px-4 py-3">
                 <div>
                     <p className="font-mono text-[8px] uppercase tracking-[0.2em] text-blue-400">
                         Platform
                     </p>
 
-                    <h2 className="mt-1 text-sm font-semibold text-white">
+                    <h2 className="mt-1 text-sm font-semibold text-primary">
                         Upcoming capabilities
                     </h2>
                 </div>
 
-                <span className="font-mono text-[8px] uppercase tracking-wider text-zinc-700">
+                <span className="font-mono text-[8px] uppercase tracking-wider text-faint">
                     Roadmap
                 </span>
             </div>
@@ -67,7 +67,7 @@ export default function PlatformFeatures() {
                     }) => (
                         <div
                             key={title}
-                            className="relative rounded-lg border border-zinc-800 bg-[#07090d] p-3"
+                            className="relative rounded-lg border border-line bg-raised p-3"
                         >
                             <div className="flex items-start justify-between">
                                 <div className="flex h-7 w-7 items-center justify-center rounded-md border border-blue-500/15 bg-blue-500/[0.06] text-blue-500/60">
@@ -76,7 +76,7 @@ export default function PlatformFeatures() {
                                     />
                                 </div>
 
-                                <div className="flex items-center gap-1 font-mono text-[7px] uppercase tracking-wider text-zinc-700">
+                                <div className="flex items-center gap-1 font-mono text-[7px] uppercase tracking-wider text-faint">
                                     <LockKeyhole
                                         size={10}
                                     />
@@ -84,11 +84,11 @@ export default function PlatformFeatures() {
                                 </div>
                             </div>
 
-                            <p className="mt-2.5 text-xs font-medium text-zinc-400">
+                            <p className="mt-2.5 text-xs font-medium text-tertiary">
                                 {title}
                             </p>
 
-                            <p className="mt-1 text-[10px] leading-4 text-zinc-600">
+                            <p className="mt-1 text-[10px] leading-4 text-muted">
                                 {description}
                             </p>
 

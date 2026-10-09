@@ -67,6 +67,9 @@ services:
 
     container_name: taskflow-worker-a
 
+    expose:
+      - "2112"
+
     environment:
       TASKFLOW_NODE_ID: worker-a
       TASKFLOW_WORKER_CONCURRENCY: 3
@@ -78,16 +81,21 @@ services:
       TASKFLOW_CONTROL_PLANE_URL: http://host.docker.internal:8080
 
       TASKFLOW_REDIS_ADDR: redis:6379
+      TASKFLOW_OTEL_ENDPOINT: tempo:4317
 
     depends_on:
       - kafka
       - redis
+      - tempo
 
   worker-b:
     build:
       context: ./worker-go
 
     container_name: taskflow-worker-b
+
+    expose:
+      - "2112"
 
     environment:
       TASKFLOW_NODE_ID: worker-b
@@ -100,16 +108,21 @@ services:
       TASKFLOW_CONTROL_PLANE_URL: http://host.docker.internal:8080
 
       TASKFLOW_REDIS_ADDR: redis:6379
+      TASKFLOW_OTEL_ENDPOINT: tempo:4317
 
     depends_on:
       - kafka
       - redis
+      - tempo
 
   worker-c:
     build:
       context: ./worker-go
 
     container_name: taskflow-worker-c
+
+    expose:
+      - "2112"
 
     environment:
       TASKFLOW_NODE_ID: worker-c
@@ -120,11 +133,14 @@ services:
       TASKFLOW_KAFKA_GROUP_ID: taskflow-workers
 
       TASKFLOW_CONTROL_PLANE_URL: http://host.docker.internal:8080
+
       TASKFLOW_REDIS_ADDR: redis:6379
+      TASKFLOW_OTEL_ENDPOINT: tempo:4317
 
     depends_on:
       - kafka
       - redis
+      - tempo
 
   redis:
     image: redis:7.4-alpine
@@ -148,6 +164,58 @@ services:
       timeout: 3s
       retries: 5
 
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: taskflow-prometheus
+
+    ports:
+      - "127.0.0.1:9090:9090"
+
+    volumes:
+      - ./infra/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: taskflow-grafana
+
+    ports:
+      - "127.0.0.1:3000:3000"
+
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+
+    volumes:
+      - grafana_data:/var/lib/grafana
+
+      - ./infra/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./infra/grafana/dashboards:/var/lib/grafana/dashboards:ro
+
+    depends_on:
+      - prometheus
+      - tempo
+
+  tempo:
+    image: grafana/tempo:latest
+    container_name: taskflow-tempo
+
+    command:
+      - -config.file=/etc/tempo.yml
+
+    ports:
+      - "127.0.0.1:3200:3200"
+      - "127.0.0.1:4317:4317"
+      - "127.0.0.1:4318:4318"
+
+    volumes:
+      - ./infra/tempo/tempo.yml:/etc/tempo.yml:ro
+      - tempo_data:/var/tempo
+
 volumes:
   mongodb_data:
   kafka_data:
+  grafana_data:
+  tempo_data:

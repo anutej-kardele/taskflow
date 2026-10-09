@@ -219,8 +219,8 @@ export default function WorkerClusterPanel({
                 lg:sticky lg:top-2 lg:z-30
                 overflow-hidden
                 rounded-lg
-                border border-zinc-800
-                bg-[#0a0c10]/95
+                border border-line
+                bg-panel/95
                 lg:shadow-[0_10px_25px_rgba(0,0,0,0.4)]
                 lg:backdrop-blur
             "
@@ -233,7 +233,7 @@ export default function WorkerClusterPanel({
 
             {loading &&
                 workers.length === 0 ? (
-                <div className="px-3 py-3 text-center font-mono text-[8px] uppercase tracking-wider text-zinc-600">
+                <div className="px-3 py-3 text-center font-mono text-[8px] uppercase tracking-wider text-muted">
                     Loading workers...
                 </div>
             ) : error ? (
@@ -285,14 +285,14 @@ export default function WorkerClusterPanel({
                                         gap-2
                                         rounded-md
                                         border
-                                        bg-[#07090d]
+                                        bg-raised
                                         px-2
                                         py-1.5
 
                                         ${!online &&
                                             !starting
                                             ? "border-red-500/15"
-                                            : "border-zinc-800"
+                                            : "border-line"
                                         }
                                     `}
                                 >
@@ -312,7 +312,7 @@ export default function WorkerClusterPanel({
 
                                             ${online
                                                 ? "border-blue-500/20 bg-blue-500/[0.07] text-blue-400"
-                                                : "border-zinc-800 bg-zinc-950 text-zinc-600"
+                                                : "border-line bg-control text-muted"
                                             }
                                         `}
                                     >
@@ -328,7 +328,7 @@ export default function WorkerClusterPanel({
                                     */}
                                     <div className="min-w-0 flex-1">
                                         <div className="flex min-w-0 items-center gap-1.5">
-                                            <p className="truncate font-mono text-[8px] font-medium text-zinc-200">
+                                            <p className="truncate font-mono text-[8px] font-medium text-secondary">
                                                 {
                                                     worker.nodeId
                                                 }
@@ -374,7 +374,7 @@ export default function WorkerClusterPanel({
                                             </span>
                                         </div>
 
-                                        <div className="mt-0.5 flex min-w-0 items-center gap-2 font-mono text-[6px] text-zinc-600">
+                                        <div className="mt-0.5 flex min-w-0 items-center gap-2 font-mono text-[6px] text-muted">
                                             <span className="flex shrink-0 items-center gap-1">
                                                 <Activity
                                                     size={
@@ -402,12 +402,12 @@ export default function WorkerClusterPanel({
                                       Fixed dimensions and flex centering
                                       keep the number perfectly centered.
                                     */}
-                                    <div className="flex h-7 w-9 shrink-0 flex-col items-center justify-center rounded-md border border-zinc-800 bg-zinc-950 text-center">
-                                        <span className="font-mono text-[5px] uppercase leading-none tracking-wider text-zinc-600">
+                                    <div className="flex h-7 w-9 shrink-0 flex-col items-center justify-center rounded-md border border-line bg-control text-center">
+                                        <span className="font-mono text-[5px] uppercase leading-none tracking-wider text-muted">
                                             Slots
                                         </span>
 
-                                        <span className="mt-0.5 text-[11px] font-semibold leading-none text-zinc-200">
+                                        <span className="mt-0.5 text-[11px] font-semibold leading-none text-secondary">
                                             {
                                                 worker.slots
                                             }

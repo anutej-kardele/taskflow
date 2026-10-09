@@ -251,7 +251,7 @@ function Field({
                         : ""
                 }
             >
-                <span className="mb-1 block text-[8px] font-medium uppercase tracking-[0.14em] text-zinc-600">
+                <span className="mb-1 block text-[8px] font-medium uppercase tracking-[0.14em] text-muted">
                     {label}
                 </span>
 
@@ -272,10 +272,10 @@ function Field({
                             taskflow-number
                             h-8 w-full
                             rounded-md
-                            border border-zinc-800
-                            bg-[#05070b]
+                            border border-line
+                            bg-page
                             px-2.5 pr-[58px]
-                            text-xs text-zinc-200
+                            text-xs text-secondary
                             outline-none
                             transition
                             focus:border-blue-500/60
@@ -294,7 +294,7 @@ function Field({
                                 flex h-6 w-6
                                 items-center justify-center
                                 rounded
-                                text-zinc-600
+                                text-muted
                                 transition
                                 hover:bg-blue-500/10
                                 hover:text-blue-400
@@ -315,7 +315,7 @@ function Field({
                                 flex h-6 w-6
                                 items-center justify-center
                                 rounded
-                                text-zinc-600
+                                text-muted
                                 transition
                                 hover:bg-blue-500/10
                                 hover:text-blue-400
@@ -340,7 +340,7 @@ function Field({
                     : ""
             }
         >
-            <span className="mb-1 block text-[8px] font-medium uppercase tracking-[0.14em] text-zinc-600">
+            <span className="mb-1 block text-[8px] font-medium uppercase tracking-[0.14em] text-muted">
                 {label}
             </span>
 
@@ -356,10 +356,10 @@ function Field({
                 className="
                     h-8 w-full
                     rounded-md
-                    border border-zinc-800
-                    bg-[#05070b]
+                    border border-line
+                    bg-page
                     px-2.5
-                    text-xs text-zinc-200
+                    text-xs text-secondary
                     outline-none
                     transition
                     focus:border-blue-500/60
@@ -703,27 +703,27 @@ export default function WorkloadComposer({
     }
 
     return (
-        <section className="rounded-xl border border-zinc-800 bg-[#0a0c10]">
+        <section className="rounded-xl border border-line bg-panel">
 
-            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-zinc-800 px-3.5 py-2.5">
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line px-3.5 py-2.5">
                 <div>
                     <div className="flex items-center gap-2">
                         <p className="font-mono text-[8px] uppercase tracking-[0.2em] text-blue-400">
                             Workload Composer
                         </p>
 
-                        <span className="font-mono text-[8px] text-zinc-700">
+                        <span className="font-mono text-[8px] text-faint">
                             {drafts.length} configured
                         </span>
                     </div>
 
-                    <h2 className="mt-0.5 text-sm font-semibold text-white">
+                    <h2 className="mt-0.5 text-sm font-semibold text-primary">
                         Build execution scenario
                     </h2>
                 </div>
 
                 <div className="flex flex-wrap items-center justify-end gap-1.5">
-                    <span className="mr-1 font-mono text-[7px] uppercase tracking-wider text-zinc-700">
+                    <span className="mr-1 font-mono text-[7px] uppercase tracking-wider text-faint">
                         Presets
                     </span>
 
@@ -756,8 +756,8 @@ export default function WorkloadComposer({
                             text-[9px]
                             transition
                             ${selected
-                                            ? "border-blue-500/40 bg-blue-500/15 text-blue-300"
-                                            : "border-zinc-800 bg-[#07090d] text-zinc-500 hover:border-blue-500/25 hover:text-zinc-300"
+                                            ? "border-blue-500/40 bg-blue-500/15 text-blue-400"
+                                            : "border-line bg-raised text-tertiary hover:border-blue-500/25 hover:text-secondary"
                                         }
                         `}
                                 >
@@ -767,9 +767,9 @@ export default function WorkloadComposer({
                         },
                     )}
 
-                    <div className="mx-1 h-4 w-px bg-zinc-800" />
+                    <div className="mx-1 h-4 w-px bg-line" />
 
-                    <span className="font-mono text-[7px] uppercase tracking-wider text-zinc-700">
+                    <span className="font-mono text-[7px] uppercase tracking-wider text-faint">
                         {totalJobs.toLocaleString()} jobs
                     </span>
 
@@ -783,7 +783,7 @@ export default function WorkloadComposer({
                 border-blue-500/25
                 bg-blue-500/10
                 px-2.5
-                text-[11px] text-blue-300
+                text-[11px] text-blue-400
                 transition
                 hover:bg-blue-500/15
             "
@@ -822,8 +822,8 @@ export default function WorkloadComposer({
                                 className="
                                     flex flex-col
                                     rounded-lg
-                                    border border-zinc-800
-                                    bg-[#07090d]
+                                    border border-line
+                                    bg-raised
                                     p-2.5
                                 "
                             >
@@ -838,7 +838,7 @@ export default function WorkloadComposer({
                                         </div>
 
                                         <div>
-                                            <p className="text-[11px] font-medium text-zinc-200">
+                                            <p className="text-[11px] font-medium text-secondary">
                                                 Workload{" "}
                                                 {
                                                     index +
@@ -846,7 +846,7 @@ export default function WorkloadComposer({
                                                 }
                                             </p>
 
-                                            <p className="font-mono text-[7px] uppercase tracking-wider text-zinc-600">
+                                            <p className="font-mono text-[7px] uppercase tracking-wider text-muted">
                                                 {
                                                     workload.jobType
                                                 }
@@ -867,7 +867,7 @@ export default function WorkloadComposer({
                                         }
                                         className="
                                             rounded-md p-1
-                                            text-zinc-700
+                                            text-faint
                                             transition
                                             hover:bg-red-500/10
                                             hover:text-red-400
@@ -885,7 +885,7 @@ export default function WorkloadComposer({
 
                                 <div className="grid grid-cols-2 gap-x-2 gap-y-2">
                                     <label className="col-span-2">
-                                        <span className="mb-1 block text-[8px] font-medium uppercase tracking-[0.14em] text-zinc-600">
+                                        <span className="mb-1 block text-[8px] font-medium uppercase tracking-[0.14em] text-muted">
                                             Job type
                                         </span>
 
@@ -906,11 +906,11 @@ export default function WorkloadComposer({
                                             className="
                                                 h-8 w-full
                                                 rounded-md
-                                                border border-zinc-800
-                                                bg-[#05070b]
+                                                border border-line
+                                                bg-page
                                                 px-2.5
                                                 text-xs
-                                                text-zinc-200
+                                                text-secondary
                                                 outline-none
                                                 focus:border-blue-500/60
                                             "
@@ -991,15 +991,15 @@ export default function WorkloadComposer({
                 </div>
             )}
 
-            <div className="flex items-center justify-between gap-3 border-t border-zinc-800 px-3.5 py-2">
+            <div className="flex items-center justify-between gap-3 border-t border-line px-3.5 py-2">
                 <div className="flex items-center gap-2">
-                    <p className="font-mono text-[8px] uppercase tracking-wider text-zinc-700">
+                    <p className="font-mono text-[8px] uppercase tracking-wider text-faint">
                         Requests execute concurrently
                     </p>
 
-                    <span className="h-1 w-1 rounded-full bg-zinc-800" />
+                    <span className="h-1 w-1 rounded-full bg-line" />
 
-                    <p className="font-mono text-[8px] uppercase tracking-wider text-zinc-600">
+                    <p className="font-mono text-[8px] uppercase tracking-wider text-muted">
                         {totalJobs.toLocaleString()} jobs
                     </p>
                 </div>
@@ -1019,7 +1019,7 @@ export default function WorkloadComposer({
                         bg-blue-600
                         px-3.5
                         text-[11px] font-medium
-                        text-white
+                        text-on-accent
                         transition
                         hover:bg-blue-500
                         disabled:cursor-not-allowed

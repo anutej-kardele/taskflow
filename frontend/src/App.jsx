@@ -686,7 +686,7 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen bg-[#05070b] text-zinc-100">
+    <div className="min-h-screen bg-page text-primary">
       <Header
         connected={connected}
       />
@@ -701,11 +701,11 @@ export default function App() {
           </div>
 
           <div className="min-w-0">
-            <p className="text-[11px] font-medium text-zinc-300">
+            <p className="text-[11px] font-medium text-secondary">
               Best experienced on desktop
             </p>
 
-            <p className="mt-0.5 text-[9px] leading-4 text-zinc-600">
+            <p className="mt-0.5 text-[9px] leading-4 text-muted">
               Mobile uses a compact workload view.
               Desktop provides the full execution console.
             </p>
@@ -720,23 +720,23 @@ export default function App() {
                   Operations Console
                 </p>
 
-                <span className="hidden font-mono text-[8px] uppercase tracking-wider text-zinc-700 md:inline">
+                <span className="hidden font-mono text-[8px] uppercase tracking-wider text-faint md:inline">
                   Distributed execution
                 </span>
               </div>
 
-              <h2 className="mt-0.5 text-xl font-semibold tracking-tight text-white">
+              <h2 className="mt-0.5 text-xl font-semibold tracking-tight text-primary">
                 Distributed Workloads
               </h2>
 
-              <p className="mt-0.5 text-[11px] text-zinc-600">
+              <p className="mt-0.5 text-[11px] text-muted">
                 Submit workloads, inspect
                 execution and observe the
                 distributed worker system.
               </p>
             </div>
 
-            <div className="hidden items-center gap-1.5 pb-0.5 font-mono text-[8px] uppercase tracking-wider text-zinc-700 md:flex">
+            <div className="hidden items-center gap-1.5 pb-0.5 font-mono text-[8px] uppercase tracking-wider text-faint md:flex">
               <span
                 className={
                   sseStatus === "CONNECTED"
@@ -749,13 +749,13 @@ export default function App() {
                   : "○ LIVE"}
               </span>
 
-              <span className="h-1 w-1 rounded-full bg-zinc-700" />
+              <span className="h-1 w-1 rounded-full bg-line" />
 
               {sseStatus === "CONNECTED"
                 ? "SSE connected"
                 : "SSE reconnecting"}
 
-              <span className="h-1 w-1 rounded-full bg-zinc-700" />
+              <span className="h-1 w-1 rounded-full bg-line" />
 
               refreshed{" "}
               {lastRefreshedLabel}
@@ -771,7 +771,7 @@ export default function App() {
         )}
 
         {loading ? (
-          <div className="rounded-xl border border-zinc-800 bg-[#0a0c10] py-16 text-center text-xs text-zinc-600">
+          <div className="rounded-xl border border-line bg-panel py-16 text-center text-xs text-muted">
             Connecting to TaskFlow...
           </div>
         ) : (
@@ -860,7 +860,7 @@ export default function App() {
       </main>
 
       <footer className="mx-auto max-w-[1500px] px-3 pb-4 pt-1 sm:px-5">
-        <div className="border-t border-zinc-900 pt-3 font-mono text-[8px] uppercase tracking-wider text-zinc-700">
+        <div className="border-t border-line-subtle pt-3 font-mono text-[8px] uppercase tracking-wider text-faint">
           TaskFlow · Spring Boot ·
           MongoDB · Kafka · Redis · Go · React
         </div>

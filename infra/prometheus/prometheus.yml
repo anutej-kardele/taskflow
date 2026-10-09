@@ -1,0 +1,22 @@
+global:
+  scrape_interval: 5s
+  evaluation_interval: 5s
+
+scrape_configs:
+  - job_name: "taskflow-control-plane"
+
+    metrics_path: /actuator/prometheus
+
+    static_configs:
+      - targets:
+          - "host.docker.internal:8080"
+
+  - job_name: "taskflow-workers"
+
+    metrics_path: /metrics
+
+    static_configs:
+      - targets:
+          - "worker-a:2112"
+          - "worker-b:2112"
+          - "worker-c:2112"

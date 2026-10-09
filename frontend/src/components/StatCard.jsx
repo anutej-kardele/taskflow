@@ -12,11 +12,11 @@ export default function StatCard({
 
                 ${accent
                     ? "border-blue-500/20 bg-blue-500/[0.06]"
-                    : "border-zinc-800 bg-[#07090d]"
+                    : "border-line bg-raised"
                 }
             `}
         >
-            <p className="font-mono text-[8px] uppercase tracking-wider text-zinc-600">
+            <p className="font-mono text-[8px] uppercase tracking-wider text-muted">
                 {label}
             </p>
 
@@ -25,8 +25,8 @@ export default function StatCard({
                     text-base font-semibold
 
                     ${accent
-                        ? "text-blue-300"
-                        : "text-white"
+                        ? "text-blue-400"
+                        : "text-primary"
                     }
                 `}
             >

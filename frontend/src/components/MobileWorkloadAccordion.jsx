@@ -13,12 +13,12 @@ export default function MobileWorkloadAccordion({
 }) {
     if (workloads.length === 0) {
         return (
-            <section className="rounded-xl border border-zinc-800 bg-[#0a0c10] p-8 text-center">
-                <p className="text-sm text-zinc-400">
+            <section className="rounded-xl border border-line bg-panel p-8 text-center">
+                <p className="text-sm text-tertiary">
                     No workloads yet
                 </p>
 
-                <p className="mt-1 text-xs text-zinc-600">
+                <p className="mt-1 text-xs text-muted">
                     Submit a workload above to begin.
                 </p>
             </section>
@@ -26,19 +26,19 @@ export default function MobileWorkloadAccordion({
     }
 
     return (
-        <section className="overflow-hidden rounded-xl border border-zinc-800 bg-[#0a0c10]">
-            <div className="flex items-center justify-between border-b border-zinc-800 px-4 py-3">
+        <section className="overflow-hidden rounded-xl border border-line bg-panel">
+            <div className="flex items-center justify-between border-b border-line px-4 py-3">
                 <div>
                     <p className="font-mono text-[8px] uppercase tracking-[0.2em] text-blue-400">
                         Execution History
                     </p>
 
-                    <h2 className="mt-1 text-sm font-semibold text-white">
+                    <h2 className="mt-1 text-sm font-semibold text-primary">
                         Workloads
                     </h2>
                 </div>
 
-                <span className="rounded-full border border-zinc-800 px-2.5 py-1 font-mono text-[9px] text-zinc-500">
+                <span className="rounded-full border border-line px-2.5 py-1 font-mono text-[9px] text-tertiary">
                     {workloads.length}
                 </span>
             </div>
@@ -122,7 +122,7 @@ export default function MobileWorkloadAccordion({
                     return (
                         <div
                             key={workload.id}
-                            className="border-b border-zinc-900 last:border-b-0"
+                            className="border-b border-line-subtle last:border-b-0"
                         >
                             <button
                                 type="button"
@@ -141,13 +141,13 @@ export default function MobileWorkloadAccordion({
 
                                     ${open
                                         ? "bg-blue-500/[0.07]"
-                                        : "hover:bg-zinc-900/60"
+                                        : "hover:bg-hover"
                                     }
                                 `}
                             >
                                 <div className="min-w-0 flex-1">
                                     <div className="flex items-center gap-2">
-                                        <p className="text-sm font-medium text-zinc-200">
+                                        <p className="text-sm font-medium text-secondary">
                                             {
                                                 workload.jobType
                                             }
@@ -161,14 +161,14 @@ export default function MobileWorkloadAccordion({
                                     </div>
 
                                     <div className="mt-1 flex items-center gap-2">
-                                        <span className="font-mono text-[9px] text-zinc-500">
+                                        <span className="font-mono text-[9px] text-tertiary">
                                             {
                                                 workload.jobCount
                                             }{" "}
                                             jobs
                                         </span>
 
-                                        <span className="text-zinc-800">
+                                        <span className="text-faint">
                                             •
                                         </span>
 
@@ -176,7 +176,7 @@ export default function MobileWorkloadAccordion({
                                             title={
                                                 workload.id
                                             }
-                                            className="max-w-[200px] truncate font-mono text-[8px] text-zinc-700"
+                                            className="max-w-[200px] truncate font-mono text-[8px] text-faint"
                                         >
                                             WorkloadID:{" "}
                                             {
@@ -195,22 +195,22 @@ export default function MobileWorkloadAccordion({
 
                                         ${open
                                             ? "rotate-180 text-blue-400"
-                                            : "text-zinc-600"
+                                            : "text-muted"
                                         }
                                     `}
                                 />
                             </button>
 
                             {open && (
-                                <div className="border-t border-blue-500/10 bg-[#07090d]">
+                                <div className="border-t border-blue-500/10 bg-raised">
                                     <div className="px-4 py-3">
                                         <div className="mb-2 flex items-end justify-between">
                                             <div>
-                                                <p className="font-mono text-[8px] uppercase tracking-wider text-zinc-600">
+                                                <p className="font-mono text-[8px] uppercase tracking-wider text-muted">
                                                     Progress
                                                 </p>
 
-                                                <p className="mt-1 text-lg font-semibold text-blue-300">
+                                                <p className="mt-1 text-lg font-semibold text-blue-400">
                                                     {
                                                         progress
                                                     }
@@ -218,7 +218,7 @@ export default function MobileWorkloadAccordion({
                                                 </p>
                                             </div>
 
-                                            <div className="flex items-center gap-1.5 text-[10px] text-zinc-600">
+                                            <div className="flex items-center gap-1.5 text-[10px] text-muted">
                                                 <Users
                                                     size={
                                                         12
@@ -236,7 +236,7 @@ export default function MobileWorkloadAccordion({
                                             </div>
                                         </div>
 
-                                        <div className="h-1 overflow-hidden rounded-full bg-zinc-900">
+                                        <div className="h-1 overflow-hidden rounded-full bg-line-subtle">
                                             <div
                                                 className="h-full rounded-full bg-blue-500 transition-all duration-500"
                                                 style={{
@@ -306,9 +306,9 @@ export default function MobileWorkloadAccordion({
                                         />
                                     </div>
 
-                                    <div className="border-t border-zinc-900">
+                                    <div className="border-t border-line-subtle">
                                         <div className="px-4 py-2.5">
-                                            <p className="font-mono text-[8px] uppercase tracking-wider text-zinc-600">
+                                            <p className="font-mono text-[8px] uppercase tracking-wider text-muted">
                                                 Jobs
                                             </p>
                                         </div>
@@ -316,7 +316,7 @@ export default function MobileWorkloadAccordion({
                                         <div className="taskflow-scroll max-h-[300px] overflow-y-auto">
                                             {selectedJobs.length ===
                                                 0 ? (
-                                                <div className="px-4 py-8 text-center text-xs text-zinc-600">
+                                                <div className="px-4 py-8 text-center text-xs text-muted">
                                                     Loading
                                                     jobs...
                                                 </div>
@@ -336,7 +336,7 @@ export default function MobileWorkloadAccordion({
                                                                 key={
                                                                     job.id
                                                                 }
-                                                                className="border-t border-zinc-900 px-4 py-2.5"
+                                                                className="border-t border-line-subtle px-4 py-2.5"
                                                             >
                                                                 <div className="flex items-center justify-between gap-3">
                                                                     <div className="min-w-0">
@@ -344,7 +344,7 @@ export default function MobileWorkloadAccordion({
                                                                             title={
                                                                                 job.id
                                                                             }
-                                                                            className="max-w-[170px] truncate font-mono text-[9px] text-zinc-400"
+                                                                            className="max-w-[170px] truncate font-mono text-[9px] text-tertiary"
                                                                         >
                                                                             {
                                                                                 job.id
@@ -356,7 +356,7 @@ export default function MobileWorkloadAccordion({
                                                                                 job.workerId ??
                                                                                 ""
                                                                             }
-                                                                            className="mt-0.5 max-w-[170px] truncate font-mono text-[8px] text-zinc-700"
+                                                                            className="mt-0.5 max-w-[170px] truncate font-mono text-[8px] text-faint"
                                                                         >
                                                                             {job.workerId ??
                                                                                 "No worker assigned"}
@@ -364,7 +364,7 @@ export default function MobileWorkloadAccordion({
                                                                     </div>
 
                                                                     <div className="flex shrink-0 items-center gap-2">
-                                                                        <span className="font-mono text-[8px] text-zinc-600">
+                                                                        <span className="font-mono text-[8px] text-muted">
                                                                             {
                                                                                 job.attempt
                                                                             }
@@ -454,11 +454,11 @@ function MiniStat({
                     ? "border-amber-500/20 bg-amber-500/[0.05]"
                     : accent
                         ? "border-blue-500/20 bg-blue-500/[0.06]"
-                        : "border-zinc-800 bg-[#05070b]"
+                        : "border-line bg-page"
                 }
             `}
         >
-            <p className="font-mono text-[7px] uppercase tracking-wider text-zinc-600">
+            <p className="font-mono text-[7px] uppercase tracking-wider text-muted">
                 {label}
             </p>
 
@@ -469,8 +469,8 @@ function MiniStat({
                     ${warning
                         ? "text-amber-300"
                         : accent
-                            ? "text-blue-300"
-                            : "text-zinc-200"
+                            ? "text-blue-400"
+                            : "text-secondary"
                     }
                 `}
             >

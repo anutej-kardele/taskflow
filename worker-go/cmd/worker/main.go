@@ -18,8 +18,16 @@ import (
 	"github.com/anutej-kardele/taskflow/worker-go/internal/client"
 	"github.com/anutej-kardele/taskflow/worker-go/internal/executor"
 	"github.com/anutej-kardele/taskflow/worker-go/internal/health"
+	workermetrics "github.com/anutej-kardele/taskflow/worker-go/internal/metrics"
 	"github.com/anutej-kardele/taskflow/worker-go/internal/model"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/segmentio/kafka-go"
+
+	"github.com/anutej-kardele/taskflow/worker-go/internal/telemetry"
+
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/codes"
 )
 
 func main() {
@@ -35,6 +43,29 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
+	otelEndpoint := getOTLPEndpoint()
+
+	shutdownTracing, err := telemetry.SetupTracing(ctx, nodeID, otelEndpoint)
+
+	if err != nil {
+		log.Printf("OpenTelemetry tracing disabled: %v", err)
+	} else {
+		log.Printf("OpenTelemetry tracing enabled endpoint=%s", otelEndpoint)
+
+		defer func() {
+			shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+
+			if err := shutdownTracing(shutdownCtx); err != nil {
+				log.Printf("OpenTelemetry shutdown error: %v", err)
+			}
+		}()
+	}
+
+	workerMetrics := workermetrics.New(nodeID)
+	metricsDone := make(chan struct{})
+	go runMetricsServer(ctx, ":2112", metricsDone)
+
 	var wg sync.WaitGroup
 
 	healthDone := make(chan struct{})
@@ -48,11 +79,12 @@ func main() {
 
 	for slotID := 1; slotID <= workerCount; slotID++ {
 		wg.Add(1)
-		go runWorker(ctx, nodeID, slotID, kafkaBrokers, kafkaTopic, kafkaGroupID, &wg)
+		go runWorker(ctx, nodeID, slotID, kafkaBrokers, kafkaTopic, kafkaGroupID, workerMetrics, &wg)
 	}
 
 	wg.Wait()
 	<-healthDone
+	<-metricsDone
 
 	log.Printf("TaskFlow node=%s stopped", nodeID)
 }
@@ -196,6 +228,7 @@ func runWorker(
 	kafkaBrokers []string,
 	kafkaTopic string,
 	kafkaGroupID string,
+	workerMetrics *workermetrics.WorkerMetrics,
 	wg *sync.WaitGroup,
 ) {
 
@@ -249,12 +282,7 @@ func runWorker(
 			continue
 		}
 
-		success := processMessage(
-			ctx,
-			reader,
-			message,
-			workerInstanceID,
-		)
+		success := processMessage(ctx, reader, message, workerInstanceID, workerMetrics)
 
 		if !success {
 			log.Printf(
@@ -272,53 +300,38 @@ func processMessage(
 	reader *kafka.Reader,
 	message kafka.Message,
 	workerID string,
+	workerMetrics *workermetrics.WorkerMetrics,
 ) bool {
 
 	var job model.JobMessage
 
-	if err := json.Unmarshal(
-		message.Value,
-		&job,
-	); err != nil {
-
-		log.Printf(
-			"invalid job message: %v",
-			err,
-		)
-
+	if err := json.Unmarshal(message.Value, &job); err != nil {
+		log.Printf("invalid job message: %v", err)
 		return false
 	}
 
-	log.Printf(
-		"worker=%s received job id=%s type=%s workload=%s",
-		workerID,
-		job.JobID,
-		job.Type,
-		job.WorkloadID,
+	log.Printf("worker=%s received job id=%s type=%s workload=%s", workerID, job.JobID, job.Type, job.WorkloadID)
+
+	ctx = telemetry.ExtractKafkaContext(ctx, message.Headers)
+	tracer := otel.Tracer("taskflow-worker")
+
+	processCtx, processSpan :=
+		tracer.Start(ctx, "job.process")
+
+	processSpan.SetAttributes(
+		attribute.String("taskflow.job.id", job.JobID),
+		attribute.String("taskflow.workload.id", job.WorkloadID),
+		attribute.String("taskflow.job.type", job.Type),
+		attribute.String("taskflow.worker.id", workerID),
 	)
 
-	/*
-		Select the correct executor for this job type.
+	defer processSpan.End()
+	ctx = processCtx
 
-		Today:
-		    SLEEP -> SleepExecutor
-
-		Later:
-		    CPU        -> CPUExecutor
-		    HTTP       -> HTTPExecutor
-		    UNRELIABLE -> UnreliableExecutor
-	*/
-	jobExecutor, err := executor.ForType(
-		job.Type,
-	)
+	jobExecutor, err := executor.ForType(job.Type)
 
 	if err != nil {
-		log.Printf(
-			"job %s rejected: %v",
-			job.JobID,
-			err,
-		)
-
+		log.Printf("job %s rejected: %v", job.JobID, err)
 		return false
 	}
 
@@ -538,12 +551,9 @@ func processMessage(
 		}
 	}
 
-	log.Printf(
-		"job %s CLAIMED worker=%s attempt=%d",
-		job.JobID,
-		workerID,
-		claimedJob.Attempt,
-	)
+	log.Printf("job %s CLAIMED worker=%s attempt=%d", job.JobID, workerID, claimedJob.Attempt)
+
+	processSpan.SetAttributes(attribute.Int("taskflow.job.attempt", claimedJob.Attempt))
 
 	/*
 		executionCtx controls the actual executor.
@@ -580,184 +590,101 @@ func processMessage(
 		job.JobID,
 	)
 
-	/*
-		Execute through the shared Executor interface.
+	workerMetrics.ExecutionStarted(job.Type)
+	executionStartedAt := time.Now()
 
-		processMessage no longer needs to know whether
-		this is SLEEP, CPU, HTTP, etc.
-	*/
-	execErr := jobExecutor.Execute(
-		executionCtx,
-		job.Payload,
-	)
+	executionCtx, executionSpan := tracer.Start(executionCtx, "job.execute")
 
-	/*
-		Execution is finished.
+	executionSpan.SetAttributes(
+		attribute.String("taskflow.job.id", job.JobID),
+		attribute.String("taskflow.job.type", job.Type),
+		attribute.String("taskflow.worker.id", workerID))
 
-		Stop lease renewal and wait until the
-		heartbeat goroutine has completely exited.
-	*/
+	execErr := jobExecutor.Execute(executionCtx, job.Payload)
+
+	executionDuration := time.Since(executionStartedAt)
+
+	executionSpan.SetAttributes(attribute.Int64("taskflow.job.execution_ms", executionDuration.Milliseconds()))
+
+	if execErr != nil && !errors.Is(execErr, context.Canceled) {
+
+		executionSpan.RecordError(execErr)
+		executionSpan.SetStatus(codes.Error, execErr.Error())
+		processSpan.RecordError(execErr)
+		processSpan.SetStatus(codes.Error, execErr.Error())
+	}
+
+	executionSpan.End()
+
+	workerMetrics.ExecutionFinished(job.Type, executionDuration)
+
+	if execErr != nil && !errors.Is(execErr, context.Canceled) {
+		workerMetrics.ExecutionFailed(job.Type)
+	}
+
 	stopHeartbeat()
 	<-heartbeatDone
 
-	/*
-		There are two main branches:
-
-		    error   -> FAILED
-		    success -> COMPLETED
-
-		Both branches then fall through to the
-		common Kafka commit below.
-	*/
 	if execErr != nil {
 
-		/*
-			context.Canceled is special.
-
-			It means either:
-
-			1. the whole worker is shutting down, or
-			2. lease renewal failed and execution
-			   was deliberately cancelled.
-
-			In either case we do NOT mark the job FAILED.
-			Another worker should recover it later.
-		*/
-		if errors.Is(
-			execErr,
-			context.Canceled,
-		) {
+		if errors.Is(execErr, context.Canceled) {
 
 			if ctx.Err() != nil {
-
-				log.Printf(
-					"job %s interrupted because worker is shutting down",
-					job.JobID,
-				)
-
+				log.Printf("job %s interrupted because worker is shutting down", job.JobID)
 			} else {
-
-				log.Printf(
-					"job %s interrupted because lease renewal failed",
-					job.JobID,
-				)
+				log.Printf("job %s interrupted because lease renewal failed", job.JobID)
 			}
 
 			return false
 		}
 
-		/*
-			This is a genuine executor failure.
-		*/
-		log.Printf(
-			"job %s FAILED: %v",
-			job.JobID,
-			execErr,
-		)
+		log.Printf("job %s FAILED: %v", job.JobID, execErr)
 
-		failureResult, failureErr :=
-			client.ReportJobFailure(
-				ctx,
-				job.JobID,
-				workerID,
-				execErr.Error(),
-			)
+		failureResult, failureErr := client.ReportJobFailure(ctx, job.JobID, workerID, execErr.Error())
 
 		if failureErr != nil {
-
-			log.Printf(
-				"failed to report execution failure for job %s: %v",
-				job.JobID,
-				failureErr,
-			)
-
+			log.Printf("failed to report execution failure for job %s: %v", job.JobID, failureErr)
 			return false
 		}
 
 		switch failureResult.Status {
 
 		case "RETRYING":
-
-			log.Printf(
-				"job %s scheduled for retry after attempt %d/%d",
-				job.JobID,
-				failureResult.Attempt,
-				failureResult.MaxAttempts,
-			)
-
+			log.Printf("job %s scheduled for retry after attempt %d/%d", job.JobID, failureResult.Attempt, failureResult.MaxAttempts)
 			if failureResult.NextRetryAt != nil {
-
-				log.Printf(
-					"job %s next retry at %s",
-					job.JobID,
-					*failureResult.NextRetryAt,
-				)
+				log.Printf("job %s next retry at %s", job.JobID, *failureResult.NextRetryAt)
 			}
+			workerMetrics.JobProcessed(job.Type, "RETRYING")
 
 		case "FAILED":
-
-			log.Printf(
-				"job %s permanently FAILED after attempt %d/%d",
-				job.JobID,
-				failureResult.Attempt,
-				failureResult.MaxAttempts,
-			)
+			log.Printf("job %s permanently FAILED after attempt %d/%d", job.JobID, failureResult.Attempt, failureResult.MaxAttempts)
+			workerMetrics.JobProcessed(job.Type, "FAILED")
 
 		default:
-
-			log.Printf(
-				"job %s returned unexpected failure state=%s",
-				job.JobID,
-				failureResult.Status,
-			)
-
+			log.Printf("job %s returned unexpected failure state=%s", job.JobID, failureResult.Status)
 			return false
 		}
 
 	} else {
 
-		/*
-			Executor completed successfully.
-		*/
-		if err := client.UpdateJobStatus(
-			ctx,
-			job.JobID,
-			"COMPLETED",
-			workerID,
-		); err != nil {
+		// Executor completed successfully
 
-			log.Printf(
-				"failed to mark job %s COMPLETED, by worker %s: %v",
-				job.JobID,
-				workerID,
-				err,
-			)
-
+		if err := client.UpdateJobStatus(ctx, job.JobID, "COMPLETED", workerID); err != nil {
+			log.Printf("failed to mark job %s COMPLETED, by worker %s: %v", job.JobID, workerID, err)
 			return false
 		}
 
-		log.Printf(
-			"job %s COMPLETED, by worker %s",
-			job.JobID,
-			workerID,
-		)
+		workerMetrics.JobProcessed(job.Type, "COMPLETED")
+		log.Printf("job %s COMPLETED, by worker %s", job.JobID, workerID)
 	}
 
-	if err := reader.CommitMessages(
-		ctx,
-		message,
-	); err != nil {
-
-		log.Printf(
-			"failed to commit job %s: %v",
-			job.JobID,
-			err,
-		)
-
+	if err := reader.CommitMessages(ctx, message); err != nil {
+		log.Printf("failed to commit job %s: %v", job.JobID, err)
 		return false
 	}
 
 	return true
+
 }
 
 func runLeaseHeartbeat(
@@ -820,4 +747,61 @@ func runLeaseHeartbeat(
 			)
 		}
 	}
+}
+
+func runMetricsServer(
+	ctx context.Context,
+	addr string,
+	done chan<- struct{},
+) {
+
+	defer close(done)
+
+	server := &http.Server{Addr: addr, Handler: promhttp.Handler()}
+
+	errCh := make(chan error, 1)
+
+	go func() {
+		log.Printf("Prometheus metrics listening on %s/metrics", addr)
+		errCh <- server.ListenAndServe()
+	}()
+
+	select {
+
+	case <-ctx.Done():
+
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+
+		defer cancel()
+
+		if err := server.Shutdown(shutdownCtx); err != nil {
+			log.Printf("metrics server shutdown failed: %v", err)
+		}
+
+		err := <-errCh
+
+		if err != nil && !errors.Is(err, http.ErrServerClosed) {
+
+			log.Printf("metrics server stopped with error: %v", err)
+		}
+
+	case err := <-errCh:
+
+		if err != nil && !errors.Is(err, http.ErrServerClosed) {
+			log.Printf("metrics server failed: %v", err)
+		}
+	}
+}
+
+func getOTLPEndpoint() string {
+
+	value := os.Getenv(
+		"TASKFLOW_OTEL_ENDPOINT",
+	)
+
+	if value == "" {
+		return "localhost:4317"
+	}
+
+	return value
 }

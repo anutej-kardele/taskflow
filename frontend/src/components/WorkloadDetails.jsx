@@ -12,18 +12,18 @@ export default function WorkloadDetails({
 }) {
     if (!workload) {
         return (
-            <section className="flex min-h-[330px] flex-col items-center justify-center rounded-xl border border-zinc-800 bg-[#0a0c10] px-6 text-center">
+            <section className="flex min-h-[330px] flex-col items-center justify-center rounded-xl border border-line bg-panel px-6 text-center">
                 <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-lg border border-blue-500/15 bg-blue-500/[0.05] text-blue-500/60">
                     <MousePointerClick
                         size={17}
                     />
                 </div>
 
-                <p className="text-sm text-zinc-400">
+                <p className="text-sm text-tertiary">
                     Select a workload
                 </p>
 
-                <p className="mt-1 text-xs text-zinc-600">
+                <p className="mt-1 text-xs text-muted">
                     Inspect job execution,
                     attempts and worker assignment.
                 </p>
@@ -338,8 +338,8 @@ export default function WorkloadDetails({
             : null;
 
     return (
-        <section className="overflow-hidden rounded-xl border border-zinc-800 bg-[#0a0c10]">
-            <div className="border-b border-zinc-800 p-4">
+        <section className="overflow-hidden rounded-xl border border-line bg-panel">
+            <div className="border-b border-line p-4">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                     <div>
                         <p className="font-mono text-[8px] uppercase tracking-[0.2em] text-blue-400">
@@ -347,7 +347,7 @@ export default function WorkloadDetails({
                         </p>
 
                         <div className="mt-1.5 flex items-center gap-2.5">
-                            <h2 className="text-lg font-semibold text-white">
+                            <h2 className="text-lg font-semibold text-primary">
                                 {
                                     workload.jobType
                                 }
@@ -362,9 +362,9 @@ export default function WorkloadDetails({
 
                         <p
                             title={workload.id}
-                            className="mt-1 max-w-[520px] truncate font-mono text-[9px] text-zinc-600"
+                            className="mt-1 max-w-[520px] truncate font-mono text-[9px] text-muted"
                         >
-                            <span className="text-zinc-500">
+                            <span className="text-tertiary">
                                 WorkloadID:
                             </span>{" "}
                             {workload.id}
@@ -372,17 +372,17 @@ export default function WorkloadDetails({
                     </div>
 
                     <div className="text-right">
-                        <p className="text-2xl font-semibold tracking-tight text-blue-300">
+                        <p className="text-2xl font-semibold tracking-tight text-blue-400">
                             {progress}%
                         </p>
 
-                        <p className="font-mono text-[8px] uppercase tracking-wider text-zinc-600">
+                        <p className="font-mono text-[8px] uppercase tracking-wider text-muted">
                             processed
                         </p>
                     </div>
                 </div>
 
-                <div className="mt-3 h-1 overflow-hidden rounded-full bg-zinc-900">
+                <div className="mt-3 h-1 overflow-hidden rounded-full bg-line-subtle">
                     <div
                         className="h-full rounded-full bg-blue-500 transition-all duration-500"
                         style={{
@@ -435,14 +435,14 @@ export default function WorkloadDetails({
                 />
             </div>
 
-            <div className="border-t border-zinc-800 px-4 py-2.5">
+            <div className="border-t border-line px-4 py-2.5">
                 <div className="grid items-center gap-3 xl:grid-cols-[160px_repeat(5,minmax(0,1fr))_100px]">
                     <div>
-                        <h3 className="text-[11px] font-medium text-zinc-300">
+                        <h3 className="text-[11px] font-medium text-secondary">
                             Performance
                         </h3>
 
-                        <p className="font-mono text-[7px] uppercase tracking-wider text-zinc-700">
+                        <p className="font-mono text-[7px] uppercase tracking-wider text-faint">
                             execution + end-to-end
                         </p>
                     </div>
@@ -485,7 +485,7 @@ export default function WorkloadDetails({
                         )}
                     />
 
-                    <p className="text-right font-mono text-[7px] uppercase tracking-wider text-zinc-700">
+                    <p className="text-right font-mono text-[7px] uppercase tracking-wider text-faint">
                         {completedTimingJobs.length}
                         <br />
                         timed jobs
@@ -499,7 +499,7 @@ export default function WorkloadDetails({
              * Phase 11.2
              * Jobs per worker-node distribution.
              */}
-            <div className="border-t border-zinc-800 px-4 py-3">
+            <div className="border-t border-line px-4 py-3">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                     <div className="flex items-center gap-2">
                         <div className="flex h-6 w-6 items-center justify-center rounded-md border border-blue-500/15 bg-blue-500/[0.06] text-blue-400/70">
@@ -509,24 +509,24 @@ export default function WorkloadDetails({
                         </div>
 
                         <div>
-                            <h3 className="text-[11px] font-medium text-zinc-300">
+                            <h3 className="text-[11px] font-medium text-secondary">
                                 Jobs per Worker
                             </h3>
 
-                            <p className="font-mono text-[7px] uppercase tracking-wider text-zinc-700">
+                            <p className="font-mono text-[7px] uppercase tracking-wider text-faint">
                                 Latest persisted ownership
                             </p>
                         </div>
                     </div>
 
-                    <div className="flex items-center gap-2 font-mono text-[8px] uppercase tracking-wider text-zinc-700">
+                    <div className="flex items-center gap-2 font-mono text-[8px] uppercase tracking-wider text-faint">
                         <span>
                             {assignedJobs} assigned
                         </span>
 
                         {unassignedJobs > 0 && (
                             <>
-                                <span className="h-1 w-1 rounded-full bg-zinc-800" />
+                                <span className="h-1 w-1 rounded-full bg-line" />
 
                                 <span>
                                     {unassignedJobs} unassigned
@@ -558,14 +558,14 @@ export default function WorkloadDetails({
                                         key={
                                             worker.nodeId
                                         }
-                                        className="rounded-md border border-zinc-800 bg-[#07090d] px-2.5 py-2"
+                                        className="rounded-md border border-line bg-raised px-2.5 py-2"
                                     >
                                         <div className="flex items-center justify-between gap-2">
                                             <p
                                                 title={
                                                     worker.nodeId
                                                 }
-                                                className="truncate font-mono text-[9px] text-zinc-400"
+                                                className="truncate font-mono text-[9px] text-tertiary"
                                             >
                                                 {
                                                     worker.nodeId
@@ -573,13 +573,13 @@ export default function WorkloadDetails({
                                             </p>
 
                                             <div className="flex items-baseline gap-1.5">
-                                                <span className="text-[11px] font-medium text-zinc-200">
+                                                <span className="text-[11px] font-medium text-secondary">
                                                     {
                                                         worker.jobCount
                                                     }
                                                 </span>
 
-                                                <span className="font-mono text-[7px] text-zinc-700">
+                                                <span className="font-mono text-[7px] text-faint">
                                                     {
                                                         percentage
                                                     }
@@ -588,7 +588,7 @@ export default function WorkloadDetails({
                                             </div>
                                         </div>
 
-                                        <div className="mt-1.5 h-1 overflow-hidden rounded-full bg-zinc-900">
+                                        <div className="mt-1.5 h-1 overflow-hidden rounded-full bg-line-subtle">
                                             <div
                                                 className="h-full rounded-full bg-blue-500/70 transition-all duration-500"
                                                 style={{
@@ -602,26 +602,26 @@ export default function WorkloadDetails({
                         )}
                     </div>
                 ) : (
-                    <div className="mt-2 rounded-md border border-dashed border-zinc-800 py-3 text-center font-mono text-[8px] uppercase tracking-wider text-zinc-700">
+                    <div className="mt-2 rounded-md border border-dashed border-line py-3 text-center font-mono text-[8px] uppercase tracking-wider text-faint">
                         Waiting for worker assignments
                     </div>
                 )}
             </div>
 
-            <div className="border-t border-zinc-800">
+            <div className="border-t border-line">
                 <div className="flex items-center justify-between px-4 py-3">
-                    <h3 className="text-xs font-medium text-zinc-300">
+                    <h3 className="text-xs font-medium text-secondary">
                         Jobs
                     </h3>
 
-                    <p className="font-mono text-[8px] uppercase tracking-wider text-zinc-700">
+                    <p className="font-mono text-[8px] uppercase tracking-wider text-faint">
                         attempt / max
                     </p>
                 </div>
 
                 <div className="taskflow-scroll max-h-[390px] overflow-auto">
                     <table className="w-full text-left">
-                        <thead className="sticky top-0 z-10 bg-[#07090d] font-mono text-[8px] uppercase tracking-wider text-zinc-600">
+                        <thead className="sticky top-0 z-10 bg-raised font-mono text-[8px] uppercase tracking-wider text-muted">
                             <tr>
                                 <th className="px-4 py-2.5">
                                     Job
@@ -655,14 +655,14 @@ export default function WorkloadDetails({
                                             key={
                                                 job.id
                                             }
-                                            className="border-t border-zinc-900 text-xs"
+                                            className="border-t border-line-subtle text-xs"
                                         >
                                             <td className="px-4 py-2.5">
                                                 <p
                                                     title={
                                                         job.id
                                                     }
-                                                    className="max-w-[190px] truncate font-mono text-[9px] text-zinc-400"
+                                                    className="max-w-[190px] truncate font-mono text-[9px] text-tertiary"
                                                 >
                                                     {
                                                         job.id
@@ -719,7 +719,7 @@ export default function WorkloadDetails({
                                             </td>
 
                                             <td className="hidden px-4 py-2.5 sm:table-cell">
-                                                <span className="font-mono text-[10px] text-zinc-400">
+                                                <span className="font-mono text-[10px] text-tertiary">
                                                     {
                                                         job.attempt
                                                     }
@@ -736,7 +736,7 @@ export default function WorkloadDetails({
                                                         job.workerId ??
                                                         ""
                                                     }
-                                                    className="max-w-[210px] truncate font-mono text-[9px] text-zinc-600"
+                                                    className="max-w-[210px] truncate font-mono text-[9px] text-muted"
                                                 >
                                                     {job.workerId ??
                                                         "—"}
@@ -752,7 +752,7 @@ export default function WorkloadDetails({
                                     <tr>
                                         <td
                                             colSpan="4"
-                                            className="px-4 py-12 text-center text-xs text-zinc-600"
+                                            className="px-4 py-12 text-center text-xs text-muted"
                                         >
                                             Waiting for jobs...
                                         </td>
@@ -772,8 +772,8 @@ function PerformanceMetric({
     accent = false,
 }) {
     return (
-        <div className="min-w-0 border-l border-zinc-800 pl-3">
-            <p className="whitespace-nowrap font-mono text-[7px] uppercase tracking-wider text-zinc-600">
+        <div className="min-w-0 border-l border-line pl-3">
+            <p className="whitespace-nowrap font-mono text-[7px] uppercase tracking-wider text-muted">
                 {label}
             </p>
 
@@ -782,8 +782,8 @@ function PerformanceMetric({
                     mt-0.5 whitespace-nowrap
                     text-sm font-semibold
                     ${accent
-                        ? "text-blue-300"
-                        : "text-zinc-200"
+                        ? "text-blue-400"
+                        : "text-secondary"
                     }
                 `}
             >

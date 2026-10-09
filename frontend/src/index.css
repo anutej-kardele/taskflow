@@ -1,6 +1,34 @@
 @import "tailwindcss";
 
+/*
+ * TaskFlow semantic theme tokens.
+ *
+ * Dark is the default theme.
+ */
 :root {
+  color-scheme: dark;
+
+  --bg-page: #05070b;
+  --bg-panel: #0a0c10;
+  --bg-raised: #07090d;
+  --bg-control: #09090b;
+  --bg-hover: #18181b;
+
+  --border: #27272a;
+  --border-subtle: #18181b;
+
+  --text-primary: #f4f4f5;
+  --text-secondary: #d4d4d8;
+  --text-tertiary: #a1a1aa;
+  --text-muted: #71717a;
+  --text-faint: #3f3f46;
+
+  --page-glow: rgba(37, 99, 235, 0.08);
+  --selection: rgba(59, 130, 246, 0.35);
+
+  --scrollbar: #27272a;
+  --scrollbar-hover: #3f3f46;
+
   font-family:
     Inter,
     ui-sans-serif,
@@ -10,27 +38,97 @@
     "Segoe UI",
     sans-serif;
 
-  color: #f4f4f5;
-  background: #05070b;
+  color: var(--text-primary);
+  background: var(--bg-page);
 
   font-synthesis: none;
   text-rendering: optimizeLegibility;
+
+  --text-on-accent: #ffffff;
+  --color-on-accent: var(--text-on-accent);
 }
 
-html {
-  background: #05070b;
+
+/*
+ * Light theme.
+ */
+html[data-theme="light"] {
+  color-scheme: light;
+
+  --bg-page: #f8fafc;
+  --bg-panel: #ffffff;
+  --bg-raised: #f4f4f5;
+  --bg-control: #ffffff;
+  --bg-hover: #f4f4f5;
+
+  --border: #d4d4d8;
+  --border-subtle: #e4e4e7;
+
+  --text-primary: #18181b;
+  --text-secondary: #3f3f46;
+  --text-tertiary: #52525b;
+  --text-muted: #71717a;
+  --text-faint: #a1a1aa;
+
+  --page-glow: rgba(37, 99, 235, 0.06);
+  --selection: rgba(59, 130, 246, 0.22);
+
+  --scrollbar: #d4d4d8;
+  --scrollbar-hover: #a1a1aa;
+
+  --text-on-accent: #ffffff;
+  --color-on-accent: var(--text-on-accent);
 }
+
+
+/*
+ * Expose the CSS variables as Tailwind v4 colors.
+ *
+ * Examples:
+ *
+ * bg-page
+ * bg-panel
+ * bg-raised
+ * border-line
+ * text-primary
+ */
+@theme inline {
+  --color-page: var(--bg-page);
+  --color-panel: var(--bg-panel);
+  --color-raised: var(--bg-raised);
+  --color-control: var(--bg-control);
+  --color-hover: var(--bg-hover);
+
+  --color-line: var(--border);
+  --color-line-subtle: var(--border-subtle);
+
+  --color-primary: var(--text-primary);
+  --color-secondary: var(--text-secondary);
+  --color-tertiary: var(--text-tertiary);
+  --color-muted: var(--text-muted);
+  --color-faint: var(--text-faint);
+}
+
+
+html {
+  background: var(--bg-page);
+}
+
 
 body {
   margin: 0;
   min-width: 320px;
   min-height: 100vh;
+
+  color: var(--text-primary);
+
   background:
     radial-gradient(circle at 50% -15%,
-      rgba(37, 99, 235, 0.08),
+      var(--page-glow),
       transparent 32%),
-    #05070b;
+    var(--bg-page);
 }
+
 
 button,
 input,
@@ -38,81 +136,70 @@ select {
   font: inherit;
 }
 
+
 button {
   cursor: pointer;
 }
+
 
 button:disabled {
   cursor: not-allowed;
 }
 
+
 * {
   box-sizing: border-box;
 }
 
+
 ::selection {
-  background: rgba(59, 130, 246, 0.35);
+  background: var(--selection);
 }
 
+
+/*
+ * Compact dashboard scrollbars.
+ */
 .taskflow-scroll {
   scrollbar-width: thin;
-  scrollbar-color: #27272a transparent;
+  scrollbar-color: var(--scrollbar) transparent;
 }
+
 
 .taskflow-scroll::-webkit-scrollbar {
   width: 6px;
   height: 6px;
 }
 
+
 .taskflow-scroll::-webkit-scrollbar-track {
   background: transparent;
 }
 
+
 .taskflow-scroll::-webkit-scrollbar-thumb {
-  background: #27272a;
+  background: var(--scrollbar);
   border-radius: 999px;
 }
 
+
 .taskflow-scroll::-webkit-scrollbar-thumb:hover {
-  background: #3f3f46;
+  background: var(--scrollbar-hover);
 }
 
-/* Remove native browser number-input controls.
-   TaskFlow renders its own styled +/- stepper. */
 
+/*
+ * Remove native browser number-input controls.
+ * TaskFlow renders its own styled +/- stepper.
+ */
 .taskflow-number::-webkit-outer-spin-button,
 .taskflow-number::-webkit-inner-spin-button {
   -webkit-appearance: none;
   margin: 0;
 }
 
+
 .taskflow-number {
   appearance: textfield;
   -moz-appearance: textfield;
-}
-
-
-/* Compact dashboard scrollbars */
-
-.taskflow-scroll {
-  scrollbar-width: thin;
-  scrollbar-color: #27272a transparent;
-}
-
-.taskflow-scroll::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-}
-
-.taskflow-scroll::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.taskflow-scroll::-webkit-scrollbar-thumb {
-  background: #27272a;
-  border-radius: 999px;
-}
-
-.taskflow-scroll::-webkit-scrollbar-thumb:hover {
-  background: #3f3f46;
 }

@@ -1,12 +1,12 @@
 const styles = {
     CREATED:
-        "border-zinc-700 bg-zinc-800/70 text-zinc-300",
+        "border-line bg-raised text-secondary",
 
     QUEUED:
-        "border-zinc-700 bg-zinc-800/70 text-zinc-300",
+        "border-line bg-raised text-secondary",
 
     RUNNING:
-        "border-blue-500/25 bg-blue-500/10 text-blue-300",
+        "border-blue-500/25 bg-blue-500/10 text-blue-400",
 
     RETRYING:
         "border-amber-500/25 bg-amber-500/10 text-amber-300",

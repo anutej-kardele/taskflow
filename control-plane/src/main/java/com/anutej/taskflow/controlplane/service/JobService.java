@@ -21,421 +21,432 @@ import com.mongodb.client.result.UpdateResult;
 
 import java.time.Instant;
 import java.util.List;
+import java.time.Duration;
 
 @Service
 public class JobService {
 
-    private final JobRepository jobRepository;
-    private final MongoTemplate mongoTemplate;
-    private final SseEventService sseEventService;
+        private final JobRepository jobRepository;
+        private final MongoTemplate mongoTemplate;
+        private final SseEventService sseEventService;
+        private final TaskFlowMetrics taskFlowMetrics;
 
-    public JobService(JobRepository jobRepository, MongoTemplate mongoTemplate, SseEventService sseEventService) {
+        public JobService(JobRepository jobRepository, MongoTemplate mongoTemplate, SseEventService sseEventService,
+                        TaskFlowMetrics taskFlowMetrics) {
 
-        this.jobRepository = jobRepository;
-
-        this.mongoTemplate = mongoTemplate;
-
-        this.sseEventService = sseEventService;
-    }
-
-    public Optional<Job> getJobById(String id) {
-        return jobRepository.findById(id);
-    }
-
-    public JobStatusUpdateResult updateJobStatus(
-            String id,
-            JobStatus status,
-            String workerId) {
-
-        Instant now = Instant.now();
-
-        Query query = new Query(
-                Criteria.where("_id").is(id)
-                        .and("status").is(JobStatus.RUNNING)
-                        .and("workerId").is(workerId)
-                        .and("leaseUntil").gt(now));
-
-        Update update = new Update();
-
-        if (status != JobStatus.COMPLETED) {
-
-            return new JobStatusUpdateResult(
-                    JobStatusUpdateResult.Outcome.CONFLICT,
-                    null);
+                this.jobRepository = jobRepository;
+                this.mongoTemplate = mongoTemplate;
+                this.sseEventService = sseEventService;
+                this.taskFlowMetrics = taskFlowMetrics;
         }
 
-        update.set("status", JobStatus.COMPLETED)
-                .set("completedAt", now)
-                .set("leaseUntil", null)
-                .set("nextRetryAt", null);
-
-        Job updatedJob = mongoTemplate.findAndModify(
-                query,
-                update,
-                FindAndModifyOptions.options().returnNew(true),
-                Job.class);
-
-        if (updatedJob == null) {
-
-            if (jobRepository.existsById(id)) {
-                return new JobStatusUpdateResult(
-                        JobStatusUpdateResult.Outcome.CONFLICT,
-                        null);
-            }
-
-            return new JobStatusUpdateResult(
-                    JobStatusUpdateResult.Outcome.NOT_FOUND,
-                    null);
+        public Optional<Job> getJobById(String id) {
+                return jobRepository.findById(id);
         }
 
-        updateWorkloadStatus(updatedJob.getWorkloadId());
+        public JobStatusUpdateResult updateJobStatus(
+                        String id,
+                        JobStatus status,
+                        String workerId) {
 
-        sseEventService.broadcastJobUpdated(updatedJob.getId(), updatedJob.getWorkloadId());
+                Instant now = Instant.now();
 
-        return new JobStatusUpdateResult(JobStatusUpdateResult.Outcome.UPDATED, updatedJob);
-    }
+                Query query = new Query(
+                                Criteria.where("_id").is(id)
+                                                .and("status").is(JobStatus.RUNNING)
+                                                .and("workerId").is(workerId)
+                                                .and("leaseUntil").gt(now));
 
-    private void updateWorkloadStatus(String workloadId) {
+                Update update = new Update();
 
-        List<Job> jobs = jobRepository.findByWorkloadId(workloadId);
+                if (status != JobStatus.COMPLETED) {
 
-        if (jobs.isEmpty()) {
-            return;
+                        return new JobStatusUpdateResult(
+                                        JobStatusUpdateResult.Outcome.CONFLICT,
+                                        null);
+                }
+
+                update.set("status", JobStatus.COMPLETED)
+                                .set("completedAt", now)
+                                .set("leaseUntil", null)
+                                .set("nextRetryAt", null);
+
+                Job updatedJob = mongoTemplate.findAndModify(
+                                query,
+                                update,
+                                FindAndModifyOptions.options().returnNew(true),
+                                Job.class);
+
+                if (updatedJob == null) {
+
+                        if (jobRepository.existsById(id)) {
+                                return new JobStatusUpdateResult(
+                                                JobStatusUpdateResult.Outcome.CONFLICT,
+                                                null);
+                        }
+
+                        return new JobStatusUpdateResult(
+                                        JobStatusUpdateResult.Outcome.NOT_FOUND,
+                                        null);
+                }
+
+                taskFlowMetrics.jobCompleted(updatedJob.getType());
+
+                if (updatedJob.getStartedAt() != null && updatedJob.getCompletedAt() != null) {
+                        Duration executionDuration = Duration.between(updatedJob.getStartedAt(),
+                                        updatedJob.getCompletedAt());
+                        taskFlowMetrics.recordJobExecution(updatedJob.getType(), executionDuration);
+                }
+
+                updateWorkloadStatus(updatedJob.getWorkloadId());
+
+                sseEventService.broadcastJobUpdated(updatedJob.getId(), updatedJob.getWorkloadId());
+
+                return new JobStatusUpdateResult(JobStatusUpdateResult.Outcome.UPDATED, updatedJob);
         }
 
-        /*
-         * A workload is terminal only when EVERY job
-         * has reached a terminal state.
-         *
-         * RETRYING, RUNNING and QUEUED are all
-         * non-terminal.
-         */
-        boolean allTerminal = jobs.stream()
-                .allMatch(job -> job.getStatus() == JobStatus.COMPLETED ||
-                        job.getStatus() == JobStatus.FAILED);
+        private void updateWorkloadStatus(String workloadId) {
 
-        boolean anyFailed = jobs.stream()
-                .anyMatch(job -> job.getStatus() == JobStatus.FAILED);
+                List<Job> jobs = jobRepository.findByWorkloadId(workloadId);
 
-        /*
-         * Once any job has started execution, retried,
-         * completed or permanently failed, the workload
-         * has moved beyond CREATED.
-         */
-        boolean anyStarted = jobs.stream()
-                .anyMatch(job -> job.getStatus() != JobStatus.QUEUED);
+                if (jobs.isEmpty()) {
+                        return;
+                }
 
-        /*
-         * Only choose COMPLETED / FAILED after every
-         * job is terminal.
-         */
-        if (allTerminal) {
+                /*
+                 * A workload is terminal only when EVERY job
+                 * has reached a terminal state.
+                 *
+                 * RETRYING, RUNNING and QUEUED are all
+                 * non-terminal.
+                 */
+                boolean allTerminal = jobs.stream()
+                                .allMatch(job -> job.getStatus() == JobStatus.COMPLETED ||
+                                                job.getStatus() == JobStatus.FAILED);
 
-            WorkloadStatus terminalStatus = anyFailed
-                    ? WorkloadStatus.FAILED
-                    : WorkloadStatus.COMPLETED;
+                boolean anyFailed = jobs.stream()
+                                .anyMatch(job -> job.getStatus() == JobStatus.FAILED);
 
-            Query query = new Query(
-                    Criteria.where("_id").is(workloadId)
-                            .and("status")
-                            .in(
-                                    WorkloadStatus.CREATED,
-                                    WorkloadStatus.RUNNING));
+                /*
+                 * Once any job has started execution, retried,
+                 * completed or permanently failed, the workload
+                 * has moved beyond CREATED.
+                 */
+                boolean anyStarted = jobs.stream()
+                                .anyMatch(job -> job.getStatus() != JobStatus.QUEUED);
 
-            Update update = new Update()
-                    .set(
-                            "status",
-                            terminalStatus);
+                /*
+                 * Only choose COMPLETED / FAILED after every
+                 * job is terminal.
+                 */
+                if (allTerminal) {
 
-            UpdateResult result = mongoTemplate.updateFirst(
-                    query,
-                    update,
-                    Workload.class);
+                        WorkloadStatus terminalStatus = anyFailed
+                                        ? WorkloadStatus.FAILED
+                                        : WorkloadStatus.COMPLETED;
 
-            if (result.getModifiedCount() > 0) {
+                        Query query = new Query(
+                                        Criteria.where("_id").is(workloadId)
+                                                        .and("status")
+                                                        .in(
+                                                                        WorkloadStatus.CREATED,
+                                                                        WorkloadStatus.RUNNING));
 
-                sseEventService
-                        .broadcastWorkloadUpdated(
-                                workloadId);
-            }
+                        Update update = new Update()
+                                        .set(
+                                                        "status",
+                                                        terminalStatus);
 
-            return;
+                        UpdateResult result = mongoTemplate.updateFirst(
+                                        query,
+                                        update,
+                                        Workload.class);
+
+                        if (result.getModifiedCount() > 0) {
+
+                                sseEventService
+                                                .broadcastWorkloadUpdated(
+                                                                workloadId);
+                        }
+
+                        return;
+                }
+
+                /*
+                 * At least one job has begun processing, but
+                 * some jobs are still QUEUED / RUNNING / RETRYING.
+                 *
+                 * Therefore the workload must remain RUNNING.
+                 */
+                if (anyStarted) {
+
+                        Query query = new Query(
+                                        Criteria.where("_id").is(workloadId)
+                                                        .and("status")
+                                                        .is(WorkloadStatus.CREATED));
+
+                        Update update = new Update()
+                                        .set(
+                                                        "status",
+                                                        WorkloadStatus.RUNNING);
+
+                        UpdateResult result = mongoTemplate.updateFirst(
+                                        query,
+                                        update,
+                                        Workload.class);
+
+                        if (result.getModifiedCount() > 0) {
+
+                                sseEventService
+                                                .broadcastWorkloadUpdated(
+                                                                workloadId);
+                        }
+                }
         }
 
-        /*
-         * At least one job has begun processing, but
-         * some jobs are still QUEUED / RUNNING / RETRYING.
-         *
-         * Therefore the workload must remain RUNNING.
-         */
-        if (anyStarted) {
+        public JobStatusUpdateResult claimJob(String id, String workerId) {
 
-            Query query = new Query(
-                    Criteria.where("_id").is(workloadId)
-                            .and("status")
-                            .is(WorkloadStatus.CREATED));
+                Instant now = Instant.now();
+                Instant leaseUntil = now.plusSeconds(30);
 
-            Update update = new Update()
-                    .set(
-                            "status",
-                            WorkloadStatus.RUNNING);
+                Criteria claimable = new Criteria().orOperator(
 
-            UpdateResult result = mongoTemplate.updateFirst(
-                    query,
-                    update,
-                    Workload.class);
+                                Criteria.where("status")
+                                                .is(JobStatus.QUEUED),
 
-            if (result.getModifiedCount() > 0) {
+                                new Criteria().andOperator(
+                                                Criteria.where("status")
+                                                                .is(JobStatus.RUNNING),
 
-                sseEventService
-                        .broadcastWorkloadUpdated(
-                                workloadId);
-            }
-        }
-    }
+                                                Criteria.where("leaseUntil")
+                                                                .lt(now)));
 
-    public JobStatusUpdateResult claimJob(String id, String workerId) {
+                Query query = new Query(
+                                new Criteria().andOperator(
+                                                Criteria.where("_id").is(id),
+                                                claimable));
 
-        Instant now = Instant.now();
-        Instant leaseUntil = now.plusSeconds(30);
+                Update update = new Update()
+                                .set("status", JobStatus.RUNNING)
+                                .set("workerId", workerId)
+                                .set("startedAt", now)
+                                .set("leaseUntil", leaseUntil)
+                                .inc("attempt", 1);
 
-        Criteria claimable = new Criteria().orOperator(
+                Job claimedJob = mongoTemplate.findAndModify(
+                                query,
+                                update,
+                                FindAndModifyOptions.options().returnNew(true),
+                                Job.class);
 
-                Criteria.where("status")
-                        .is(JobStatus.QUEUED),
+                if (claimedJob == null) {
 
-                new Criteria().andOperator(
-                        Criteria.where("status")
-                                .is(JobStatus.RUNNING),
+                        if (jobRepository.existsById(id)) {
+                                return new JobStatusUpdateResult(
+                                                JobStatusUpdateResult.Outcome.CONFLICT,
+                                                null);
+                        }
 
-                        Criteria.where("leaseUntil")
-                                .lt(now)));
+                        return new JobStatusUpdateResult(
+                                        JobStatusUpdateResult.Outcome.NOT_FOUND,
+                                        null);
+                }
 
-        Query query = new Query(
-                new Criteria().andOperator(
-                        Criteria.where("_id").is(id),
-                        claimable));
+                updateWorkloadStatus(claimedJob.getWorkloadId());
 
-        Update update = new Update()
-                .set("status", JobStatus.RUNNING)
-                .set("workerId", workerId)
-                .set("startedAt", now)
-                .set("leaseUntil", leaseUntil)
-                .inc("attempt", 1);
+                sseEventService.broadcastJobUpdated(claimedJob.getId(), claimedJob.getWorkloadId());
 
-        Job claimedJob = mongoTemplate.findAndModify(
-                query,
-                update,
-                FindAndModifyOptions.options().returnNew(true),
-                Job.class);
-
-        if (claimedJob == null) {
-
-            if (jobRepository.existsById(id)) {
-                return new JobStatusUpdateResult(
-                        JobStatusUpdateResult.Outcome.CONFLICT,
-                        null);
-            }
-
-            return new JobStatusUpdateResult(
-                    JobStatusUpdateResult.Outcome.NOT_FOUND,
-                    null);
+                return new JobStatusUpdateResult(JobStatusUpdateResult.Outcome.UPDATED, claimedJob);
         }
 
-        updateWorkloadStatus(claimedJob.getWorkloadId());
+        public JobStatusUpdateResult renewLease(
+                        String id,
+                        String workerId) {
 
-        sseEventService.broadcastJobUpdated(claimedJob.getId(), claimedJob.getWorkloadId());
+                Instant now = Instant.now();
+                Instant newLeaseUntil = now.plusSeconds(30);
 
-        return new JobStatusUpdateResult(JobStatusUpdateResult.Outcome.UPDATED, claimedJob);
-    }
+                Query query = new Query(
+                                Criteria.where("_id").is(id)
+                                                .and("status").is(JobStatus.RUNNING)
+                                                .and("workerId").is(workerId)
+                                                .and("leaseUntil").gt(now));
 
-    public JobStatusUpdateResult renewLease(
-            String id,
-            String workerId) {
+                Update update = new Update()
+                                .set("leaseUntil", newLeaseUntil);
 
-        Instant now = Instant.now();
-        Instant newLeaseUntil = now.plusSeconds(30);
+                Job updatedJob = mongoTemplate.findAndModify(
+                                query,
+                                update,
+                                FindAndModifyOptions.options().returnNew(true),
+                                Job.class);
 
-        Query query = new Query(
-                Criteria.where("_id").is(id)
-                        .and("status").is(JobStatus.RUNNING)
-                        .and("workerId").is(workerId)
-                        .and("leaseUntil").gt(now));
+                if (updatedJob == null) {
 
-        Update update = new Update()
-                .set("leaseUntil", newLeaseUntil);
+                        if (jobRepository.existsById(id)) {
+                                return new JobStatusUpdateResult(
+                                                JobStatusUpdateResult.Outcome.CONFLICT,
+                                                null);
+                        }
 
-        Job updatedJob = mongoTemplate.findAndModify(
-                query,
-                update,
-                FindAndModifyOptions.options().returnNew(true),
-                Job.class);
-
-        if (updatedJob == null) {
-
-            if (jobRepository.existsById(id)) {
-                return new JobStatusUpdateResult(
-                        JobStatusUpdateResult.Outcome.CONFLICT,
-                        null);
-            }
-
-            return new JobStatusUpdateResult(
-                    JobStatusUpdateResult.Outcome.NOT_FOUND,
-                    null);
-        }
-
-        return new JobStatusUpdateResult(
-                JobStatusUpdateResult.Outcome.UPDATED,
-                updatedJob);
-    }
-
-    private long retryDelaySecondsForAttempt(int attempt) {
-
-        return switch (attempt) {
-
-            case 1 -> 1;
-
-            case 2 -> 5;
-
-            default -> 5;
-        };
-    }
-
-    private int effectiveMaxAttempts(Job job) {
-
-        if (job.getMaxAttempts() <= 0) {
-            return 3;
-        }
-
-        return job.getMaxAttempts();
-    }
-
-    public JobStatusUpdateResult reportJobFailure(
-            String id,
-            String workerId,
-            String error) {
-
-        Instant now = Instant.now();
-
-        /*
-         * First read the current job so the control plane
-         * can make the retry-policy decision.
-         */
-        Optional<Job> existingJob = jobRepository.findById(id);
-
-        if (existingJob.isEmpty()) {
-
-            return new JobStatusUpdateResult(
-                    JobStatusUpdateResult.Outcome.NOT_FOUND,
-                    null);
-        }
-
-        Job job = existingJob.get();
-
-        /*
-         * Only the worker that currently owns a RUNNING job
-         * with an active lease may report its execution failure.
-         */
-        boolean validOwner = job.getStatus() == JobStatus.RUNNING
-                && job.getWorkerId() != null
-                && job.getWorkerId().equals(workerId)
-                && job.getLeaseUntil() != null
-                && job.getLeaseUntil().isAfter(now);
-
-        if (!validOwner) {
-
-            return new JobStatusUpdateResult(
-                    JobStatusUpdateResult.Outcome.CONFLICT,
-                    null);
-        }
-
-        int maxAttempts = effectiveMaxAttempts(job);
-
-        boolean canRetry = job.getAttempt() < maxAttempts;
-
-        /*
-         * Include the current attempt in the atomic query.
-         *
-         * If something changed after our initial read,
-         * findAndModify will fail instead of overwriting
-         * newer state.
-         */
-        Query query = new Query(
-                Criteria.where("_id").is(id)
-                        .and("status").is(JobStatus.RUNNING)
-                        .and("workerId").is(workerId)
-                        .and("attempt").is(job.getAttempt())
-                        .and("leaseUntil").gt(now));
-
-        Update update = new Update()
-                .set("leaseUntil", null)
-                .set("lastError", error);
-
-        if (canRetry) {
-
-            Instant nextRetryAt = now.plusSeconds(
-                    retryDelaySecondsForAttempt(
-                            job.getAttempt()));
-
-            update
-                    .set("status", JobStatus.RETRYING)
-                    .set("nextRetryAt", nextRetryAt);
-
-        } else {
-
-            update
-                    .set("status", JobStatus.FAILED)
-                    .set("nextRetryAt", null);
-        }
-
-        Job updatedJob = mongoTemplate.findAndModify(
-                query,
-                update,
-                FindAndModifyOptions.options()
-                        .returnNew(true),
-                Job.class);
-
-        if (updatedJob == null) {
-
-            if (jobRepository.existsById(id)) {
+                        return new JobStatusUpdateResult(
+                                        JobStatusUpdateResult.Outcome.NOT_FOUND,
+                                        null);
+                }
 
                 return new JobStatusUpdateResult(
-                        JobStatusUpdateResult.Outcome.CONFLICT,
-                        null);
-            }
-
-            return new JobStatusUpdateResult(
-                    JobStatusUpdateResult.Outcome.NOT_FOUND,
-                    null);
+                                JobStatusUpdateResult.Outcome.UPDATED,
+                                updatedJob);
         }
 
-        /*
-         * A retryable failure is NOT a failed workload.
-         *
-         * Only update the workload rollup once this job has
-         * permanently exhausted its retry budget.
-         */
-        if (updatedJob.getStatus() == JobStatus.FAILED) {
-            updateWorkloadStatus(updatedJob.getWorkloadId());
+        private long retryDelaySecondsForAttempt(int attempt) {
+
+                return switch (attempt) {
+
+                        case 1 -> 1;
+
+                        case 2 -> 5;
+
+                        default -> 5;
+                };
         }
 
-        sseEventService.broadcastJobUpdated(updatedJob.getId(), updatedJob.getWorkloadId());
+        private int effectiveMaxAttempts(Job job) {
 
-        return new JobStatusUpdateResult(
-                JobStatusUpdateResult.Outcome.UPDATED,
-                updatedJob);
-    }
+                if (job.getMaxAttempts() <= 0) {
+                        return 3;
+                }
 
-    public JobSummaryResponse getJobSummary() {
+                return job.getMaxAttempts();
+        }
 
-        long totalJobs = jobRepository.count();
+        public JobStatusUpdateResult reportJobFailure(
+                        String id,
+                        String workerId,
+                        String error) {
 
-        long completedJobs = jobRepository.countByStatus(
-                JobStatus.COMPLETED);
+                Instant now = Instant.now();
 
-        return new JobSummaryResponse(
-                totalJobs,
-                completedJobs);
-    }
+                /*
+                 * First read the current job so the control plane
+                 * can make the retry-policy decision.
+                 */
+                Optional<Job> existingJob = jobRepository.findById(id);
+
+                if (existingJob.isEmpty()) {
+
+                        return new JobStatusUpdateResult(
+                                        JobStatusUpdateResult.Outcome.NOT_FOUND,
+                                        null);
+                }
+
+                Job job = existingJob.get();
+
+                /*
+                 * Only the worker that currently owns a RUNNING job
+                 * with an active lease may report its execution failure.
+                 */
+                boolean validOwner = job.getStatus() == JobStatus.RUNNING
+                                && job.getWorkerId() != null
+                                && job.getWorkerId().equals(workerId)
+                                && job.getLeaseUntil() != null
+                                && job.getLeaseUntil().isAfter(now);
+
+                if (!validOwner) {
+
+                        return new JobStatusUpdateResult(
+                                        JobStatusUpdateResult.Outcome.CONFLICT,
+                                        null);
+                }
+
+                int maxAttempts = effectiveMaxAttempts(job);
+
+                boolean canRetry = job.getAttempt() < maxAttempts;
+
+                /*
+                 * Include the current attempt in the atomic query.
+                 *
+                 * If something changed after our initial read,
+                 * findAndModify will fail instead of overwriting
+                 * newer state.
+                 */
+                Query query = new Query(
+                                Criteria.where("_id").is(id)
+                                                .and("status").is(JobStatus.RUNNING)
+                                                .and("workerId").is(workerId)
+                                                .and("attempt").is(job.getAttempt())
+                                                .and("leaseUntil").gt(now));
+
+                Update update = new Update()
+                                .set("leaseUntil", null)
+                                .set("lastError", error);
+
+                if (canRetry) {
+
+                        Instant nextRetryAt = now.plusSeconds(
+                                        retryDelaySecondsForAttempt(
+                                                        job.getAttempt()));
+
+                        update
+                                        .set("status", JobStatus.RETRYING)
+                                        .set("nextRetryAt", nextRetryAt);
+
+                } else {
+
+                        update
+                                        .set("status", JobStatus.FAILED)
+                                        .set("nextRetryAt", null);
+                }
+
+                Job updatedJob = mongoTemplate.findAndModify(
+                                query,
+                                update,
+                                FindAndModifyOptions.options()
+                                                .returnNew(true),
+                                Job.class);
+
+                if (updatedJob == null) {
+
+                        if (jobRepository.existsById(id)) {
+
+                                return new JobStatusUpdateResult(
+                                                JobStatusUpdateResult.Outcome.CONFLICT,
+                                                null);
+                        }
+
+                        return new JobStatusUpdateResult(
+                                        JobStatusUpdateResult.Outcome.NOT_FOUND,
+                                        null);
+                }
+
+                /*
+                 * A retryable failure is NOT a failed workload.
+                 *
+                 * Only update the workload rollup once this job has
+                 * permanently exhausted its retry budget.
+                 */
+                if (updatedJob.getStatus() == JobStatus.FAILED) {
+                        taskFlowMetrics.jobFailed(updatedJob.getType());
+                        updateWorkloadStatus(updatedJob.getWorkloadId());
+                }
+
+                sseEventService.broadcastJobUpdated(updatedJob.getId(), updatedJob.getWorkloadId());
+
+                return new JobStatusUpdateResult(
+                                JobStatusUpdateResult.Outcome.UPDATED,
+                                updatedJob);
+        }
+
+        public JobSummaryResponse getJobSummary() {
+
+                long totalJobs = jobRepository.count();
+
+                long completedJobs = jobRepository.countByStatus(
+                                JobStatus.COMPLETED);
+
+                return new JobSummaryResponse(
+                                totalJobs,
+                                completedJobs);
+        }
 
 }

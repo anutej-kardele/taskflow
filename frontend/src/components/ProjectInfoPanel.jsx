@@ -30,8 +30,8 @@ const architecture = [
 
 export default function ProjectInfoPanel() {
     return (
-        <section className="flex min-h-[470px] flex-col overflow-hidden rounded-xl border border-zinc-800 bg-[#0a0c10]">
-            <div className="border-b border-zinc-800 px-5 py-4">
+        <section className="flex min-h-[470px] flex-col overflow-hidden rounded-xl border border-line bg-panel">
+            <div className="border-b border-line px-5 py-4">
                 <p className="font-mono text-[8px] uppercase tracking-[0.2em] text-blue-400">
                     About TaskFlow
                 </p>
@@ -46,11 +46,11 @@ export default function ProjectInfoPanel() {
                     </div>
 
                     <div>
-                        <h2 className="text-lg font-semibold text-white">
+                        <h2 className="text-lg font-semibold text-primary">
                             Distributed workload execution
                         </h2>
 
-                        <p className="mt-0.5 text-xs text-zinc-500">
+                        <p className="mt-0.5 text-xs text-tertiary">
                             A distributed-systems project for
                             scheduling, executing and recovering
                             batches of jobs.
@@ -60,7 +60,7 @@ export default function ProjectInfoPanel() {
             </div>
 
             <div className="flex-1 p-5">
-                <p className="max-w-2xl text-xs leading-6 text-zinc-500">
+                <p className="max-w-2xl text-xs leading-6 text-tertiary">
                     TaskFlow separates workload coordination from
                     execution. The Spring Boot control plane persists
                     durable state and retry policy, Kafka distributes
@@ -78,7 +78,7 @@ export default function ProjectInfoPanel() {
                         }) => (
                             <div
                                 key={label}
-                                className="rounded-lg border border-zinc-800 bg-[#07090d] p-3"
+                                className="rounded-lg border border-line bg-raised p-3"
                             >
                                 <div className="flex items-center gap-2">
                                     <div className="flex h-7 w-7 items-center justify-center rounded-md border border-blue-500/15 bg-blue-500/[0.06] text-blue-400">
@@ -88,11 +88,11 @@ export default function ProjectInfoPanel() {
                                     </div>
 
                                     <div>
-                                        <p className="font-mono text-[8px] uppercase tracking-wider text-zinc-600">
+                                        <p className="font-mono text-[8px] uppercase tracking-wider text-muted">
                                             {label}
                                         </p>
 
-                                        <p className="mt-0.5 text-xs font-medium text-zinc-300">
+                                        <p className="mt-0.5 text-xs font-medium text-secondary">
                                             {value}
                                         </p>
                                     </div>
@@ -107,7 +107,7 @@ export default function ProjectInfoPanel() {
                         Current capabilities
                     </p>
 
-                    <div className="mt-3 grid gap-x-8 gap-y-2 text-[11px] text-zinc-500 sm:grid-cols-2">
+                    <div className="mt-3 grid gap-x-8 gap-y-2 text-[11px] text-tertiary sm:grid-cols-2">
                         <p>
                             • SLEEP, CPU, HTTP and
                             UNRELIABLE jobs
@@ -151,8 +151,8 @@ export default function ProjectInfoPanel() {
                 </div>
             </div>
 
-            <div className="border-t border-zinc-800 px-5 py-3">
-                <p className="font-mono text-[8px] uppercase tracking-wider text-zinc-700">
+            <div className="border-t border-line px-5 py-3">
+                <p className="font-mono text-[8px] uppercase tracking-wider text-faint">
                     Select a workload from the execution
                     history to inspect it
                 </p>

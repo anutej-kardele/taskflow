@@ -26,20 +26,20 @@ public class WorkloadService {
     private final JobRepository jobRepository;
     private final JobPublisher jobPublisher;
     private final SseEventService sseEventService;
+    private final TaskFlowMetrics taskFlowMetrics;
 
     public WorkloadService(
             WorkloadRepository workloadRepository,
             JobRepository jobRepository,
             JobPublisher jobPublisher,
-            SseEventService sseEventService) {
+            SseEventService sseEventService,
+            TaskFlowMetrics taskFlowMetrics) {
 
         this.workloadRepository = workloadRepository;
-
         this.jobRepository = jobRepository;
-
         this.jobPublisher = jobPublisher;
-
         this.sseEventService = sseEventService;
+        this.taskFlowMetrics = taskFlowMetrics;
     }
 
     public Workload createWorkload(JobType jobType, int jobCount, Map<String, Object> configuration) {
@@ -78,6 +78,7 @@ public class WorkloadService {
         }
 
         jobRepository.saveAll(jobs);
+        taskFlowMetrics.jobsCreated(jobType, jobs.size());
 
         sseEventService.broadcastWorkloadUpdated(workloadId);
 
