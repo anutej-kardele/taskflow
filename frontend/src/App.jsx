@@ -24,6 +24,7 @@ import useTaskFlowEvents from "./hooks/useTaskFlowEvents";
 
 import {
   getJobSummary,
+  getWorkerControls,
   getWorkers,
   getWorkloadJobs,
   getWorkloads,
@@ -59,6 +60,35 @@ export default function App() {
 
   const [workers, setWorkers] =
     useState([]);
+
+  const [
+    workerControlsEnabled,
+    setWorkerControlsEnabled,
+  ] = useState(false);
+
+  const loadWorkerControls =
+    useCallback(async () => {
+      try {
+        const data =
+          await getWorkerControls();
+
+        setWorkerControlsEnabled(
+          data.enabled,
+        );
+      } catch {
+        /*
+         * Fail closed.
+         *
+         * If capability detection fails,
+         * do not expose destructive controls.
+         */
+        setWorkerControlsEnabled(false);
+      }
+    }, []);
+
+  useEffect(() => {
+    loadWorkerControls();
+  }, [loadWorkerControls]);
 
   const [
     workersLoading,
@@ -783,18 +813,13 @@ export default function App() {
 
             <WorkerClusterPanel
               workers={workers}
-              loading={
-                workersLoading
+              loading={workersLoading}
+              error={workerHealthError}
+              controlsEnabled={
+                workerControlsEnabled
               }
-              error={
-                workerHealthError
-              }
-              onKill={
-                handleKillWorker
-              }
-              onStart={
-                handleStartWorker
-              }
+              onKill={handleKillWorker}
+              onStart={handleStartWorker}
             />
 
             <WorkloadComposer

@@ -94,3 +94,7 @@ export function startWorker(
 export function getJobSummary() {
     return request("/jobs/summary");
 }
+
+export function getWorkerControls() {
+    return request("/workers/controls");
+}

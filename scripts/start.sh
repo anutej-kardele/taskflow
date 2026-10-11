@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 
-set -e
+set -euo pipefail
 
-ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-LOG_DIR="$ROOT_DIR/.taskflow/logs"
-PID_DIR="$ROOT_DIR/.taskflow/pids"
+ROOT_DIR="$(
+    cd "$(dirname "${BASH_SOURCE[0]}")/.." &&
+    pwd
+)"
 
-mkdir -p "$LOG_DIR"
-mkdir -p "$PID_DIR"
+cd "$ROOT_DIR"
 
 echo ""
 echo "========================================"
@@ -16,35 +16,10 @@ echo " Distributed Job Processing System"
 echo "========================================"
 echo ""
 
-
-# --------------------------------------------------
-# Helpers
-# --------------------------------------------------
-
-is_process_running() {
-    local pid_file="$1"
-
-    if [ ! -f "$pid_file" ]; then
-        return 1
-    fi
-
-    local pid
-    pid="$(cat "$pid_file")"
-
-    if kill -0 "$pid" 2>/dev/null; then
-        return 0
-    fi
-
-    rm -f "$pid_file"
-
-    return 1
-}
-
-
 wait_for_url() {
     local name="$1"
     local url="$2"
-    local attempts="${3:-30}"
+    local attempts="${3:-60}"
 
     echo "Waiting for $name..."
 
@@ -61,184 +36,83 @@ wait_for_url() {
     return 1
 }
 
+wait_for_container_health() {
+    local name="$1"
+    local container="$2"
+    local attempts="${3:-60}"
+    local status
 
-# --------------------------------------------------
-# Core Docker infrastructure
-# --------------------------------------------------
+    echo "Waiting for $name health..."
 
-echo "[1/6] Starting MongoDB, Kafka, and Redis..."
+    for ((i = 1; i <= attempts; i++)); do
+        status="$(
+            docker inspect \
+                -f '{{.State.Health.Status}}' \
+                "$container" \
+                2>/dev/null || true
+        )"
 
-cd "$ROOT_DIR"
+        if [ "$status" = "healthy" ]; then
+            echo "✓ $name is healthy"
+            return 0
+        fi
 
-docker compose up -d \
-    mongodb \
-    kafka \
-    redis
+        sleep 1
+    done
+
+    echo "✗ $name did not become healthy"
+    return 1
+}
+
+echo "[1/3] Building and starting TaskFlow..."
+echo ""
+
+docker compose -p taskflow up -d --build
 
 echo ""
 
-docker compose ps \
-    mongodb \
-    kafka \
-    redis
-
+echo "[2/3] Waiting for services..."
 echo ""
-
-
-# --------------------------------------------------
-# Observability infrastructure
-# --------------------------------------------------
-
-echo "[2/6] Starting Prometheus, Tempo, and Grafana..."
-
-docker compose up -d \
-    prometheus \
-    tempo \
-    grafana
-
-echo ""
-
-wait_for_url \
-    "Prometheus" \
-    "http://localhost:9090/-/ready" \
-    60
-
-wait_for_url \
-    "Tempo" \
-    "http://localhost:3200/ready" \
-    60
-
-wait_for_url \
-    "Grafana" \
-    "http://localhost:3000/api/health" \
-    60
-
-echo ""
-
-docker compose ps \
-    prometheus \
-    tempo \
-    grafana
-
-echo ""
-
-
-# --------------------------------------------------
-# Control plane
-# --------------------------------------------------
-
-CONTROL_PLANE_PID_FILE="$PID_DIR/control-plane.pid"
-
-echo "[3/6] Starting Spring Boot control plane..."
-
-if is_process_running "$CONTROL_PLANE_PID_FILE"; then
-    CONTROL_PLANE_PID="$(cat "$CONTROL_PLANE_PID_FILE")"
-
-    echo "✓ Control plane already running (PID $CONTROL_PLANE_PID)"
-else
-    cd "$ROOT_DIR/control-plane"
-
-    nohup ./mvnw spring-boot:run \
-        > "$LOG_DIR/control-plane.log" \
-        2>&1 &
-
-    CONTROL_PLANE_PID=$!
-
-    echo "$CONTROL_PLANE_PID" \
-        > "$CONTROL_PLANE_PID_FILE"
-
-    echo "Control plane started (PID $CONTROL_PLANE_PID)"
-fi
 
 wait_for_url \
     "Control plane" \
     "http://localhost:8080/actuator/health" \
-    60
-
-CONTROL_PLANE_PID="$(
-    lsof -tiTCP:8080 -sTCP:LISTEN \
-    | head -n 1
-)"
-
-if [ -z "$CONTROL_PLANE_PID" ]; then
-    echo "✗ Could not determine control-plane listener PID"
-    exit 1
-fi
-
-echo "$CONTROL_PLANE_PID" \
-    > "$CONTROL_PLANE_PID_FILE"
-
-echo "✓ Control plane listener PID: $CONTROL_PLANE_PID"
-
-echo ""
-
-
-# --------------------------------------------------
-# Distributed Go workers
-# --------------------------------------------------
-
-echo "[4/6] Building and starting Go worker containers..."
-
-cd "$ROOT_DIR"
-
-docker compose up -d --build \
-    worker-a \
-    worker-b \
-    worker-c
-
-echo ""
-
-docker compose ps \
-    worker-a \
-    worker-b \
-    worker-c
-
-echo ""
-
-
-# --------------------------------------------------
-# Frontend
-# --------------------------------------------------
-
-FRONTEND_PID_FILE="$PID_DIR/frontend.pid"
-
-echo "[5/6] Starting React frontend..."
-
-if is_process_running "$FRONTEND_PID_FILE"; then
-    FRONTEND_PID="$(cat "$FRONTEND_PID_FILE")"
-
-    echo "✓ Frontend already running (PID $FRONTEND_PID)"
-else
-    cd "$ROOT_DIR/frontend"
-
-    nohup npm run dev \
-        > "$LOG_DIR/frontend.log" \
-        2>&1 &
-
-    FRONTEND_PID=$!
-
-    echo "$FRONTEND_PID" \
-        > "$FRONTEND_PID_FILE"
-
-    echo "Frontend started (PID $FRONTEND_PID)"
-fi
+    90
 
 wait_for_url \
     "Frontend" \
     "http://localhost:5173" \
-    30
+    90
+
+wait_for_container_health \
+    "Frontend" \
+    "taskflow-frontend" \
+    60
+
+wait_for_url \
+    "Prometheus" \
+    "http://localhost:9090/-/ready" \
+    90
+
+wait_for_url \
+    "Tempo" \
+    "http://localhost:3200/ready" \
+    90
+
+wait_for_url \
+    "Grafana" \
+    "http://localhost:3000/api/health" \
+    90
+
+wait_for_url \
+    "Worker API" \
+    "http://localhost:5173/api/workers" \
+    90
 
 echo ""
 
-
-# --------------------------------------------------
-# Final status
-# --------------------------------------------------
-
-echo "[6/6] TaskFlow status"
+echo "[3/3] TaskFlow status"
 echo ""
-
-cd "$ROOT_DIR"
 
 docker compose ps
 
@@ -261,20 +135,11 @@ echo "  MongoDB:        localhost:27017"
 echo "  Kafka:          localhost:9092"
 echo "  Redis:          localhost:6379"
 echo ""
-echo "Worker containers:"
-echo "  taskflow-worker-a"
-echo "  taskflow-worker-b"
-echo "  taskflow-worker-c"
+echo "Logs:"
+echo "  docker compose -p taskflow logs -f"
 echo ""
-echo "Application logs:"
-echo "  $LOG_DIR/control-plane.log"
-echo "  $LOG_DIR/frontend.log"
+echo "Worker logs:"
+echo "  docker compose -p taskflow logs -f worker-a worker-b worker-c"
 echo ""
-echo "Docker logs:"
-echo "  docker compose logs -f worker-a worker-b worker-c"
-echo "  docker compose logs -f prometheus"
-echo "  docker compose logs -f tempo"
-echo "  docker compose logs -f grafana"
-echo ""
-echo "No persistent volumes are removed by the start/stop scripts."
+echo "Persistent Docker volumes are preserved."
 echo ""

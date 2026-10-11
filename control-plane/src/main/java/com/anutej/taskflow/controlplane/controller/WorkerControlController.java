@@ -9,92 +9,102 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.anutej.taskflow.controlplane.dto.WorkerControlResponse;
 import com.anutej.taskflow.controlplane.service.WorkerControlService;
+import org.springframework.web.bind.annotation.GetMapping;
+import com.anutej.taskflow.controlplane.dto.WorkerControlStatusResponse;
 
 @RestController
 @RequestMapping("/api/workers")
 public class WorkerControlController {
 
-    private final WorkerControlService workerControlService;
+        private final WorkerControlService workerControlService;
 
-    public WorkerControlController(
-            WorkerControlService workerControlService) {
+        public WorkerControlController(
+                        WorkerControlService workerControlService) {
 
-        this.workerControlService = workerControlService;
-    }
-
-    @PostMapping("/{nodeId}/kill")
-    public ResponseEntity<WorkerControlResponse> killWorker(
-            @PathVariable String nodeId) {
-
-        if (!workerControlService.controlsEnabled()) {
-
-            return ResponseEntity
-                    .status(HttpStatus.FORBIDDEN)
-                    .body(
-                            new WorkerControlResponse(
-                                    nodeId,
-                                    "KILL",
-                                    "Worker controls are disabled"));
+                this.workerControlService = workerControlService;
         }
 
-        if (!workerControlService.isKnownWorker(nodeId)) {
+        @PostMapping("/{nodeId}/kill")
+        public ResponseEntity<WorkerControlResponse> killWorker(
+                        @PathVariable String nodeId) {
 
-            return ResponseEntity
-                    .status(HttpStatus.NOT_FOUND)
-                    .body(
-                            new WorkerControlResponse(
-                                    nodeId,
-                                    "KILL",
-                                    "Unknown worker"));
+                if (!workerControlService.controlsEnabled()) {
+
+                        return ResponseEntity
+                                        .status(HttpStatus.FORBIDDEN)
+                                        .body(
+                                                        new WorkerControlResponse(
+                                                                        nodeId,
+                                                                        "KILL",
+                                                                        "Worker controls are disabled"));
+                }
+
+                if (!workerControlService.isKnownWorker(nodeId)) {
+
+                        return ResponseEntity
+                                        .status(HttpStatus.NOT_FOUND)
+                                        .body(
+                                                        new WorkerControlResponse(
+                                                                        nodeId,
+                                                                        "KILL",
+                                                                        "Unknown worker"));
+                }
+
+                boolean killed = workerControlService.killWorker(
+                                nodeId);
+
+                return ResponseEntity.ok(
+                                new WorkerControlResponse(
+                                                nodeId,
+                                                "KILL",
+                                                killed
+                                                                ? "Worker container killed"
+                                                                : "Worker container already stopped"));
         }
 
-        boolean killed = workerControlService.killWorker(
-                nodeId);
+        @PostMapping("/{nodeId}/start")
+        public ResponseEntity<WorkerControlResponse> startWorker(
+                        @PathVariable String nodeId) {
 
-        return ResponseEntity.ok(
-                new WorkerControlResponse(
-                        nodeId,
-                        "KILL",
-                        killed
-                                ? "Worker container killed"
-                                : "Worker container already stopped"));
-    }
+                if (!workerControlService.controlsEnabled()) {
 
-    @PostMapping("/{nodeId}/start")
-    public ResponseEntity<WorkerControlResponse> startWorker(
-            @PathVariable String nodeId) {
+                        return ResponseEntity
+                                        .status(HttpStatus.FORBIDDEN)
+                                        .body(
+                                                        new WorkerControlResponse(
+                                                                        nodeId,
+                                                                        "START",
+                                                                        "Worker controls are disabled"));
+                }
 
-        if (!workerControlService.controlsEnabled()) {
+                if (!workerControlService.isKnownWorker(nodeId)) {
 
-            return ResponseEntity
-                    .status(HttpStatus.FORBIDDEN)
-                    .body(
-                            new WorkerControlResponse(
-                                    nodeId,
-                                    "START",
-                                    "Worker controls are disabled"));
+                        return ResponseEntity
+                                        .status(HttpStatus.NOT_FOUND)
+                                        .body(
+                                                        new WorkerControlResponse(
+                                                                        nodeId,
+                                                                        "START",
+                                                                        "Unknown worker"));
+                }
+
+                boolean started = workerControlService.startWorker(
+                                nodeId);
+
+                return ResponseEntity.ok(
+                                new WorkerControlResponse(
+                                                nodeId,
+                                                "START",
+                                                started
+                                                                ? "Worker container started"
+                                                                : "Worker container already running"));
         }
 
-        if (!workerControlService.isKnownWorker(nodeId)) {
+        @GetMapping("/controls")
+        public ResponseEntity<WorkerControlStatusResponse> getWorkerControls() {
 
-            return ResponseEntity
-                    .status(HttpStatus.NOT_FOUND)
-                    .body(
-                            new WorkerControlResponse(
-                                    nodeId,
-                                    "START",
-                                    "Unknown worker"));
+                return ResponseEntity.ok(
+                                new WorkerControlStatusResponse(
+                                                workerControlService.controlsEnabled()));
         }
-
-        boolean started = workerControlService.startWorker(
-                nodeId);
-
-        return ResponseEntity.ok(
-                new WorkerControlResponse(
-                        nodeId,
-                        "START",
-                        started
-                                ? "Worker container started"
-                                : "Worker container already running"));
-    }
 }

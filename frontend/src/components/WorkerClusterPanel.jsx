@@ -73,6 +73,7 @@ export default function WorkerClusterPanel({
     workers,
     loading,
     error,
+    controlsEnabled,
     onKill,
     onStart,
 }) {
@@ -428,75 +429,68 @@ export default function WorkerClusterPanel({
                                     {/*
                                       Failure control
                                     */}
-                                    <button
-                                        type="button"
-                                        disabled={
-                                            busy
-                                        }
-                                        onClick={() =>
-                                            handleAction(
-                                                worker,
-                                            )
-                                        }
-                                        className={`
-                                            flex
-                                            h-7
-                                            min-w-[58px]
-                                            shrink-0
-                                            items-center
-                                            justify-center
-                                            gap-1
-                                            rounded-md
-                                            border
-                                            px-1.5
-                                            font-mono
-                                            text-[7px]
-                                            uppercase
-                                            tracking-wider
-                                            transition
-
-                                            ${stopping ||
-                                                starting
-                                                ? "border-amber-500/20 bg-amber-500/[0.06] text-amber-400"
-                                                : online
-                                                    ? "border-red-500/20 bg-red-500/[0.06] text-red-400 hover:border-red-500/40 hover:bg-red-500/10"
-                                                    : "border-emerald-500/20 bg-emerald-500/[0.06] text-emerald-400 hover:border-emerald-500/40 hover:bg-emerald-500/10"
+                                    {controlsEnabled && (
+                                        <button
+                                            type="button"
+                                            disabled={busy}
+                                            onClick={() =>
+                                                handleAction(worker)
                                             }
+                                            className={`
+                                                flex
+                                                h-7
+                                                min-w-[58px]
+                                                shrink-0
+                                                items-center
+                                                justify-center
+                                                gap-1
+                                                rounded-md
+                                                border
+                                                px-1.5
+                                                font-mono
+                                                text-[7px]
+                                                uppercase
+                                                tracking-wider
+                                                transition
+
+                                                ${stopping ||
+                                                    starting
+                                                    ? "bg-amber-400"
+                                                    : online
+                                                        ? "bg-emerald-400"
+                                                        : unknown
+                                                            ? "bg-amber-400"
+                                                            : "bg-red-400"
+                                                }
 
                                             disabled:cursor-not-allowed
                                             disabled:opacity-70
                                         `}
-                                    >
-                                        {online ? (
-                                            <PowerOff
-                                                size={
-                                                    9
-                                                }
-                                            />
-                                        ) : (
-                                            <Play
-                                                size={
-                                                    9
-                                                }
-                                            />
-                                        )}
+                                        >
+                                            {online ? (
+                                                <PowerOff size={9} />
+                                            ) : (
+                                                <Play size={9} />
+                                            )}
 
-                                        {stopping
-                                            ? "Stopping"
-                                            : starting
-                                                ? "Starting"
-                                                : unknown
-                                                    ? "Unknown"
-                                                    : online
-                                                        ? "Kill"
-                                                        : "Start"}
-                                    </button>
+                                            {stopping
+                                                ? "Stopping"
+                                                : starting
+                                                    ? "Starting"
+                                                    : unknown
+                                                        ? "Unknown"
+                                                        : online
+                                                            ? "Kill"
+                                                            : "Start"}
+                                        </button>
+                                    )}
                                 </div>
                             );
                         },
                     )}
                 </div>
             )}
+
         </section>
     );
 }

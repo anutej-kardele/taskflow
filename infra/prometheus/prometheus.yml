@@ -9,7 +9,7 @@ scrape_configs:
 
     static_configs:
       - targets:
-          - "host.docker.internal:8080"
+          - "control-plane:8080"
 
   - job_name: "taskflow-workers"
 

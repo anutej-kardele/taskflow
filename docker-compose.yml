@@ -61,6 +61,71 @@ services:
     volumes:
       - kafka_data:/var/lib/kafka/data
 
+    healthcheck:
+      test: [ "CMD-SHELL", "/opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list >/dev/null 2>&1" ]
+      interval: 5s
+      timeout: 10s
+      retries: 20
+      start_period: 10s
+
+  control-plane:
+    build:
+      context: ./control-plane
+
+    container_name: taskflow-control-plane
+
+    ports:
+      - "127.0.0.1:8080:8080"
+
+    environment:
+      SPRING_MONGODB_URI: mongodb://mongodb:27017/taskflow
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PORT: 6379
+
+      MANAGEMENT_OPENTELEMETRY_TRACING_EXPORT_OTLP_ENDPOINT: http://tempo:4318/v1/traces
+      MANAGEMENT_OTLP_METRICS_EXPORT_ENABLED: "false"
+
+      TASKFLOW_WORKER_CONTROLS_ENABLED: "false"
+
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      tempo:
+        condition: service_started
+
+    healthcheck:
+      test: [ "CMD-SHELL", "wget -qO- http://localhost:8080/actuator/health | grep -q '\"status\":\"UP\"'" ]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 15s
+
+  frontend:
+    build:
+      context: ./frontend
+
+    container_name: taskflow-frontend
+
+    ports:
+      - "127.0.0.1:5173:80"
+
+    depends_on:
+      control-plane:
+        condition: service_healthy
+
+    healthcheck:
+      test: [ "CMD-SHELL", "wget -qO- http://127.0.0.1/ >/dev/null 2>&1 || exit 1" ]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
+
   worker-a:
     build:
       context: ./worker-go
@@ -78,15 +143,20 @@ services:
       TASKFLOW_KAFKA_TOPIC: taskflow.jobs
       TASKFLOW_KAFKA_GROUP_ID: taskflow-workers
 
-      TASKFLOW_CONTROL_PLANE_URL: http://host.docker.internal:8080
+      TASKFLOW_CONTROL_PLANE_URL: http://control-plane:8080
 
       TASKFLOW_REDIS_ADDR: redis:6379
       TASKFLOW_OTEL_ENDPOINT: tempo:4317
 
     depends_on:
-      - kafka
-      - redis
-      - tempo
+      kafka:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      control-plane:
+        condition: service_healthy
+      tempo:
+        condition: service_started
 
   worker-b:
     build:
@@ -105,15 +175,20 @@ services:
       TASKFLOW_KAFKA_TOPIC: taskflow.jobs
       TASKFLOW_KAFKA_GROUP_ID: taskflow-workers
 
-      TASKFLOW_CONTROL_PLANE_URL: http://host.docker.internal:8080
+      TASKFLOW_CONTROL_PLANE_URL: http://control-plane:8080
 
       TASKFLOW_REDIS_ADDR: redis:6379
       TASKFLOW_OTEL_ENDPOINT: tempo:4317
 
     depends_on:
-      - kafka
-      - redis
-      - tempo
+      kafka:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      control-plane:
+        condition: service_healthy
+      tempo:
+        condition: service_started
 
   worker-c:
     build:
@@ -132,15 +207,19 @@ services:
       TASKFLOW_KAFKA_TOPIC: taskflow.jobs
       TASKFLOW_KAFKA_GROUP_ID: taskflow-workers
 
-      TASKFLOW_CONTROL_PLANE_URL: http://host.docker.internal:8080
-
+      TASKFLOW_CONTROL_PLANE_URL: http://control-plane:8080
       TASKFLOW_REDIS_ADDR: redis:6379
       TASKFLOW_OTEL_ENDPOINT: tempo:4317
 
     depends_on:
-      - kafka
-      - redis
-      - tempo
+      kafka:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      control-plane:
+        condition: service_healthy
+      tempo:
+        condition: service_started
 
   redis:
     image: redis:7.4-alpine
