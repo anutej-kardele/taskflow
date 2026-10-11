@@ -155,6 +155,21 @@ wait_for_url \
     "http://localhost:8080/actuator/health" \
     60
 
+CONTROL_PLANE_PID="$(
+    lsof -tiTCP:8080 -sTCP:LISTEN \
+    | head -n 1
+)"
+
+if [ -z "$CONTROL_PLANE_PID" ]; then
+    echo "✗ Could not determine control-plane listener PID"
+    exit 1
+fi
+
+echo "$CONTROL_PLANE_PID" \
+    > "$CONTROL_PLANE_PID_FILE"
+
+echo "✓ Control plane listener PID: $CONTROL_PLANE_PID"
+
 echo ""
 
 

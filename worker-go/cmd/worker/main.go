@@ -233,63 +233,97 @@ func runWorker(
 ) {
 
 	defer wg.Done()
+	workerInstanceID := fmt.Sprintf("%s-slot-%d", nodeID, slotID)
+	const restartBackoff = 2 * time.Second
 
-	workerInstanceID := fmt.Sprintf(
-		"%s-slot-%d",
-		nodeID,
-		slotID,
-	)
+	/*
+		Each worker slot acts as a supervisor.
 
-	reader := kafka.NewReader(
-		kafka.ReaderConfig{
-			Brokers:                kafkaBrokers,
-			Topic:                  kafkaTopic,
-			GroupID:                kafkaGroupID,
-			StartOffset:            kafka.FirstOffset,
-			WatchPartitionChanges:  true,
-			PartitionWatchInterval: 5 * time.Second,
-		},
-	)
-
-	defer reader.Close()
-
-	log.Printf(
-		"worker %s started",
-		workerInstanceID,
-	)
-
+		If message processing becomes unresolved because
+		of a temporary infrastructure problem, the slot
+		recycles its Kafka reader and rejoins the consumer
+		group instead of permanently exiting.
+	*/
 	for {
 
-		message, err := reader.FetchMessage(ctx)
+		if ctx.Err() != nil {
+			log.Printf("worker %s shutting down", workerInstanceID)
+			return
+		}
 
-		if err != nil {
+		reader := kafka.NewReader(
+			kafka.ReaderConfig{
+				Brokers:                kafkaBrokers,
+				Topic:                  kafkaTopic,
+				GroupID:                kafkaGroupID,
+				StartOffset:            kafka.FirstOffset,
+				WatchPartitionChanges:  true,
+				PartitionWatchInterval: 5 * time.Second,
+			},
+		)
 
-			if ctx.Err() != nil {
-				log.Printf(
-					"worker %s shutting down",
-					workerInstanceID,
-				)
+		log.Printf("worker %s consumer session started", workerInstanceID)
+		restartSession := false
 
-				return
+		for {
+
+			message, err := reader.FetchMessage(ctx)
+
+			if err != nil {
+
+				if ctx.Err() != nil {
+					_ = reader.Close()
+					log.Printf("worker %s shutting down", workerInstanceID)
+					return
+				}
+
+				log.Printf("worker %s failed to fetch message: %v", workerInstanceID, err)
+				continue
 			}
 
-			log.Printf(
-				"worker %s failed to fetch message: %v",
-				workerInstanceID,
-				err,
-			)
+			success := processMessage(ctx, reader, message, workerInstanceID, workerMetrics)
+			if success {
+				continue
+			}
 
+			/*
+				The message was intentionally left
+				uncommitted.
+
+				Recycle the reader so Kafka can rebalance
+				and redeliver the unresolved message.
+			*/
+			log.Printf("worker %s message processing unresolved; recycling consumer session", workerInstanceID)
+			restartSession = true
+			break
+		}
+
+		if err := reader.Close(); err != nil {
+			log.Printf("worker %s failed to close Kafka reader: %v", workerInstanceID, err)
+		}
+
+		if ctx.Err() != nil {
+			log.Printf("worker %s shutting down", workerInstanceID)
+			return
+		}
+
+		if !restartSession {
 			continue
 		}
 
-		success := processMessage(ctx, reader, message, workerInstanceID, workerMetrics)
+		log.Printf("worker %s restarting consumer session in %s", workerInstanceID, restartBackoff)
 
-		if !success {
-			log.Printf(
-				"worker %s stopping because message processing was unresolved",
-				workerInstanceID,
-			)
+		timer := time.NewTimer(restartBackoff)
 
+		select {
+
+		case <-timer.C:
+			log.Printf("worker %s restarting consumer session", workerInstanceID)
+
+		case <-ctx.Done():
+
+			timer.Stop()
+			log.Printf("worker %s shutting down during restart backoff", workerInstanceID)
 			return
 		}
 	}
