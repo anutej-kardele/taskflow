@@ -249,6 +249,10 @@ export default function WorkerClusterPanel({
                                 worker.status ===
                                 "ONLINE";
 
+                            const unknown =
+                                worker.status ===
+                                "UNKNOWN";
+
                             const pending =
                                 getPendingAction(
                                     worker,
@@ -264,7 +268,8 @@ export default function WorkerClusterPanel({
 
                             const busy =
                                 stopping ||
-                                starting;
+                                starting ||
+                                unknown;
 
                             const displayStatus =
                                 stopping
@@ -289,10 +294,12 @@ export default function WorkerClusterPanel({
                                         px-2
                                         py-1.5
 
-                                        ${!online &&
-                                            !starting
-                                            ? "border-red-500/15"
-                                            : "border-line"
+                                        ${unknown
+                                            ? "border-amber-500/20"
+                                            : !online &&
+                                                !starting
+                                                ? "border-red-500/15"
+                                                : "border-line"
                                         }
                                     `}
                                 >
@@ -312,7 +319,9 @@ export default function WorkerClusterPanel({
 
                                             ${online
                                                 ? "border-blue-500/20 bg-blue-500/[0.07] text-blue-400"
-                                                : "border-line bg-control text-muted"
+                                                : unknown
+                                                    ? "border-amber-500/20 bg-amber-500/[0.06] text-amber-400"
+                                                    : "border-line bg-control text-muted"
                                             }
                                         `}
                                     >
@@ -343,10 +352,12 @@ export default function WorkerClusterPanel({
 
                                                     ${stopping ||
                                                         starting
-                                                        ? "bg-amber-400"
+                                                        ? "text-amber-400"
                                                         : online
-                                                            ? "bg-emerald-400"
-                                                            : "bg-red-400"
+                                                            ? "text-emerald-400"
+                                                            : unknown
+                                                                ? "text-amber-400"
+                                                                : "text-red-400"
                                                     }
                                                 `}
                                             />
@@ -474,9 +485,11 @@ export default function WorkerClusterPanel({
                                             ? "Stopping"
                                             : starting
                                                 ? "Starting"
-                                                : online
-                                                    ? "Kill"
-                                                    : "Start"}
+                                                : unknown
+                                                    ? "Unknown"
+                                                    : online
+                                                        ? "Kill"
+                                                        : "Start"}
                                     </button>
                                 </div>
                             );
