@@ -1,0 +1,45 @@
+
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: taskflow-worker-autoscaler
+  namespace: taskflow
+
+spec:
+  scaleTargetRef:
+    name: taskflow-worker
+
+  pollingInterval: 5
+
+  minReplicaCount: 3
+  maxReplicaCount: 10
+
+  advanced:
+    restoreToOriginalReplicaCount: true
+
+    horizontalPodAutoscalerConfig:
+      behavior:
+        scaleUp:
+          stabilizationWindowSeconds: 0
+          policies:
+            - type: Pods
+              value: 4
+              periodSeconds: 5
+
+        scaleDown:
+          stabilizationWindowSeconds: 45
+          policies:
+            - type: Pods
+              value: 2
+              periodSeconds: 15
+
+  triggers:
+    - type: kafka
+      metadata:
+        bootstrapServers: kafka.taskflow.svc.cluster.local:9092
+        consumerGroup: taskflow-workers
+        topic: taskflow.jobs
+
+        lagThreshold: "5"
+        activationLagThreshold: "0"
+        offsetResetPolicy: earliest

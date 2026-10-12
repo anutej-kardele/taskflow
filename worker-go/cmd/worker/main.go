@@ -40,8 +40,17 @@ func main() {
 	redisAddr := getRedisAddr()
 	startedAt := time.Now().UTC()
 
-	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
-	defer stop()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	// Kafka fetching stops immediately on SIGTERM.
+	// Active jobs keep using ctx until they finish.
+	fetchCtx, stopFetching := context.WithCancel(ctx)
+	defer stopFetching()
+
+	signals := make(chan os.Signal, 1)
+	signal.Notify(signals, os.Interrupt, syscall.SIGTERM)
+	defer signal.Stop(signals)
 
 	otelEndpoint := getOTLPEndpoint()
 
@@ -79,10 +88,52 @@ func main() {
 
 	for slotID := 1; slotID <= workerCount; slotID++ {
 		wg.Add(1)
-		go runWorker(ctx, nodeID, slotID, kafkaBrokers, kafkaTopic, kafkaGroupID, workerMetrics, &wg)
+		go runWorker(ctx, fetchCtx, nodeID, slotID, kafkaBrokers, kafkaTopic, kafkaGroupID, workerMetrics, &wg)
 	}
 
-	wg.Wait()
+
+	workersDone := make(chan struct{})
+
+	go func() {
+		wg.Wait()
+		close(workersDone)
+	}()
+
+	select {
+	case sig := <-signals:
+		log.Printf(
+			"TaskFlow node=%s received %s; draining active jobs",
+			nodeID,
+			sig,
+		)
+
+		// Prevent all worker slots from fetching new messages.
+		stopFetching()
+
+		timer := time.NewTimer(225 * time.Second)
+		defer timer.Stop()
+
+		select {
+		case <-workersDone:
+			log.Printf("TaskFlow node=%s drained successfully", nodeID)
+
+		case <-timer.C:
+			log.Printf(
+				"TaskFlow node=%s drain timeout; canceling active jobs",
+				nodeID,
+			)
+
+			cancel()
+			<-workersDone
+		}
+
+	case <-workersDone:
+		log.Printf("TaskFlow node=%s worker slots exited", nodeID)
+	}
+
+	// Stop background health/metrics loops after workers finish.
+	cancel()
+
 	<-healthDone
 	<-metricsDone
 
@@ -223,6 +274,7 @@ func getKafkaGroupID() string {
 
 func runWorker(
 	ctx context.Context,
+	fetchCtx context.Context,
 	nodeID string,
 	slotID int,
 	kafkaBrokers []string,
@@ -246,7 +298,7 @@ func runWorker(
 	*/
 	for {
 
-		if ctx.Err() != nil {
+		if fetchCtx.Err() != nil {
 			log.Printf("worker %s shutting down", workerInstanceID)
 			return
 		}
@@ -267,11 +319,11 @@ func runWorker(
 
 		for {
 
-			message, err := reader.FetchMessage(ctx)
+			message, err := reader.FetchMessage(fetchCtx)
 
 			if err != nil {
 
-				if ctx.Err() != nil {
+				if fetchCtx.Err() != nil {
 					_ = reader.Close()
 					log.Printf("worker %s shutting down", workerInstanceID)
 					return
@@ -302,7 +354,7 @@ func runWorker(
 			log.Printf("worker %s failed to close Kafka reader: %v", workerInstanceID, err)
 		}
 
-		if ctx.Err() != nil {
+		if fetchCtx.Err() != nil {
 			log.Printf("worker %s shutting down", workerInstanceID)
 			return
 		}
@@ -320,7 +372,7 @@ func runWorker(
 		case <-timer.C:
 			log.Printf("worker %s restarting consumer session", workerInstanceID)
 
-		case <-ctx.Done():
+		case <-fetchCtx.Done():
 
 			timer.Stop()
 			log.Printf("worker %s shutting down during restart backoff", workerInstanceID)

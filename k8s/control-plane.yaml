@@ -1,0 +1,81 @@
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: control-plane
+  namespace: taskflow
+spec:
+  type: ClusterIP
+  selector:
+    app: control-plane
+  ports:
+    - port: 8080
+      targetPort: 8080
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: control-plane
+  namespace: taskflow
+spec:
+  replicas: 1
+
+  selector:
+    matchLabels:
+      app: control-plane
+
+  template:
+    metadata:
+      labels:
+        app: control-plane
+
+    spec:
+      containers:
+        - name: control-plane
+          image: taskflow-control-plane:discovery-v1
+          imagePullPolicy: IfNotPresent
+
+          ports:
+            - containerPort: 8080
+
+          envFrom:
+            - configMapRef:
+                name: taskflow-control-plane-config
+
+          env:
+            - name: MANAGEMENT_ENDPOINT_HEALTH_PROBES_ENABLED
+              value: "true"
+
+            # Tempo has not been deployed into Kubernetes yet.
+            # Temporarily disable tracing sampling.
+            - name: MANAGEMENT_TRACING_SAMPLING_PROBABILITY
+              value: "0.0"
+
+          startupProbe:
+            httpGet:
+              path: /actuator/health
+              port: 8080
+            periodSeconds: 5
+            failureThreshold: 30
+
+          readinessProbe:
+            httpGet:
+              path: /actuator/health/readiness
+              port: 8080
+            periodSeconds: 5
+            timeoutSeconds: 3
+
+          livenessProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: 8080
+            periodSeconds: 10
+            timeoutSeconds: 3
+
+          resources:
+            requests:
+              cpu: 200m
+              memory: 384Mi
+            limits:
+              memory: 1Gi

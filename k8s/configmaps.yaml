@@ -1,0 +1,40 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: taskflow-control-plane-config
+  namespace: taskflow
+
+data:
+  SPRING_MONGODB_URI: "mongodb://mongodb:27017/taskflow"
+  SPRING_KAFKA_BOOTSTRAP_SERVERS: "kafka:9092"
+
+  SPRING_DATA_REDIS_HOST: "redis"
+  SPRING_DATA_REDIS_PORT: "6379"
+
+  MANAGEMENT_OPENTELEMETRY_TRACING_EXPORT_OTLP_ENDPOINT: "http://tempo:4318/v1/traces"
+  MANAGEMENT_OTLP_METRICS_EXPORT_ENABLED: "false"
+
+  TASKFLOW_WORKER_CONTROLS_ENABLED: "false"
+  TASKFLOW_WORKER_DISCOVERY_MODE: "dynamic"
+
+
+---
+
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: taskflow-worker-config
+  namespace: taskflow
+
+data:
+  TASKFLOW_WORKER_CONCURRENCY: "3"
+
+  TASKFLOW_KAFKA_BROKERS: "kafka:9092"
+  TASKFLOW_KAFKA_TOPIC: "taskflow.jobs"
+  TASKFLOW_KAFKA_GROUP_ID: "taskflow-workers"
+
+  TASKFLOW_CONTROL_PLANE_URL: "http://control-plane:8080"
+
+  TASKFLOW_REDIS_ADDR: "redis:6379"
+  TASKFLOW_OTEL_ENDPOINT: "tempo:4317"
