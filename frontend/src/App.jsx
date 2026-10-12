@@ -13,7 +13,6 @@ import {
 import Header from "./components/Header";
 import MobileWorkloadAccordion from "./components/MobileWorkloadAccordion";
 import OverviewMetrics from "./components/OverviewMetrics";
-import PlatformFeatures from "./components/PlatformFeatures";
 import ProjectInfoPanel from "./components/ProjectInfoPanel";
 import WorkloadComposer from "./components/WorkloadComposer";
 import WorkloadDetails from "./components/WorkloadDetails";
@@ -715,16 +714,14 @@ export default function App() {
     await loadWorkers();
   }
 
+
   return (
     <div className="min-h-screen bg-page text-primary">
-      <Header
-        connected={connected}
-      />
+      <Header connected={connected} />
 
       <main className="mx-auto max-w-[1500px] px-3 py-3 sm:px-5">
-        {/*
-          Mobile notice.
-        */}
+
+        {/* Mobile notice */}
         <div className="mb-3 flex items-center gap-3 rounded-lg border border-blue-500/20 bg-blue-500/[0.06] px-3 py-2.5 lg:hidden">
           <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-blue-500/20 bg-blue-500/10 text-blue-400">
             <Monitor size={14} />
@@ -742,6 +739,7 @@ export default function App() {
           </div>
         </div>
 
+        {/* Operations heading */}
         <section className="mb-2.5">
           <div className="flex items-end justify-between gap-3">
             <div>
@@ -760,12 +758,12 @@ export default function App() {
               </h2>
 
               <p className="mt-0.5 text-[11px] text-muted">
-                Submit workloads, inspect
-                execution and observe the
-                distributed worker system.
+                Submit workloads, inspect execution and observe
+                the distributed worker system.
               </p>
             </div>
 
+            {/* Live connection status */}
             <div className="hidden items-center gap-1.5 pb-0.5 font-mono text-[8px] uppercase tracking-wider text-faint md:flex">
               <span
                 className={
@@ -787,13 +785,12 @@ export default function App() {
 
               <span className="h-1 w-1 rounded-full bg-line" />
 
-              refreshed{" "}
-              {lastRefreshedLabel}
+              refreshed {lastRefreshedLabel}
             </div>
           </div>
-
         </section>
 
+        {/* Application errors */}
         {error && (
           <div className="mb-2.5 rounded-lg border border-red-500/20 bg-red-500/[0.07] px-3 py-2 text-[11px] text-red-300">
             {error}
@@ -806,72 +803,46 @@ export default function App() {
           </div>
         ) : (
           <div className="space-y-3">
-            <OverviewMetrics
-              workloads={workloads}
-              jobSummary={jobSummary}
+
+            {/* 1. PRIMARY ACTION — Workload Composer */}
+            <WorkloadComposer
+              onCreated={handleCreated}
             />
 
+            {/* 2. LIVE WORKERS — Kubernetes and Compose */}
             <WorkerClusterPanel
               workers={workers}
               loading={workersLoading}
               error={workerHealthError}
-              controlsEnabled={
-                workerControlsEnabled
-              }
+              controlsEnabled={workerControlsEnabled}
               onKill={handleKillWorker}
               onStart={handleStartWorker}
             />
 
-            <WorkloadComposer
-              onCreated={
-                handleCreated
-              }
-            />
-
-            {/*
-              Mobile / tablet layout.
-            */}
+            {/* 3. EXECUTION HISTORY — Mobile / tablet */}
             <div className="lg:hidden">
               <MobileWorkloadAccordion
-                workloads={
-                  workloads
-                }
-                selectedId={
-                  selectedWorkloadId
-                }
+                workloads={workloads}
+                selectedId={selectedWorkloadId}
                 jobs={selectedJobs}
-                onToggle={
-                  handleMobileToggle
-                }
+                onToggle={handleMobileToggle}
               />
             </div>
 
-            {/*
-              Desktop layout.
-            */}
+            {/* 3. EXECUTION HISTORY — Desktop */}
             <div className="hidden gap-3 lg:grid lg:grid-cols-[0.9fr_1.1fr]">
               <WorkloadList
-                workloads={
-                  workloads
-                }
-                selectedId={
-                  selectedWorkloadId
-                }
-                onSelect={
-                  setSelectedWorkloadId
-                }
+                workloads={workloads}
+                selectedId={selectedWorkloadId}
+                onSelect={setSelectedWorkloadId}
                 onShowInfo={() =>
-                  setSelectedWorkloadId(
-                    null,
-                  )
+                  setSelectedWorkloadId(null)
                 }
               />
 
               {selectedWorkload ? (
                 <WorkloadDetails
-                  workload={
-                    selectedWorkload
-                  }
+                  workload={selectedWorkload}
                   jobs={selectedJobs}
                 />
               ) : (
@@ -879,15 +850,37 @@ export default function App() {
               )}
             </div>
 
-            <PlatformFeatures />
+            {/* 4. SYSTEM OVERVIEW — Global statistics */}
+            <section className="pt-2">
+              <div className="mb-2">
+                <p className="font-mono text-[8px] uppercase tracking-[0.2em] text-blue-400">
+                  Platform
+                </p>
+
+                <h2 className="mt-1 text-sm font-semibold text-primary">
+                  System Overview
+                </h2>
+
+                <p className="mt-0.5 text-[10px] text-muted">
+                  Aggregate workload and job statistics
+                  across the platform.
+                </p>
+              </div>
+
+              <OverviewMetrics
+                workloads={workloads}
+                jobSummary={jobSummary}
+              />
+            </section>
+
           </div>
         )}
       </main>
 
+      {/* Footer */}
       <footer className="mx-auto max-w-[1500px] px-3 pb-4 pt-1 sm:px-5">
         <div className="border-t border-line-subtle pt-3 font-mono text-[8px] uppercase tracking-wider text-faint">
-          TaskFlow · Spring Boot ·
-          MongoDB · Kafka · Redis · Go · React
+          TaskFlow · Spring Boot · MongoDB · Kafka · Redis · Go · React
         </div>
       </footer>
     </div>

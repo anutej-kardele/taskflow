@@ -47,7 +47,7 @@ function configurationForType(jobType) {
 
         case "HTTP":
             return {
-                url: "http://host.docker.internal:8080/api/workloads",
+                url: "http://control-plane:8080/api/workloads",
                 timeoutMs: 5000,
             };
 
@@ -130,7 +130,7 @@ const scenarioPresets = [
                 jobType: "HTTP",
                 jobCount: 250,
                 configuration: {
-                    url: "http://host.docker.internal:8080/api/workloads",
+                    url: "http://control-plane:8080/api/workloads",
                     timeoutMs: 5000,
                 },
             },
@@ -174,7 +174,7 @@ const scenarioPresets = [
                 jobType: "HTTP",
                 jobCount: 2000,
                 configuration: {
-                    url: "http://host.docker.internal:8080/api/workloads",
+                    url: "http://control-plane:8080/api/workloads",
                     timeoutMs: 5000,
                 },
             },
